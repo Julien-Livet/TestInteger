@@ -471,27 +471,24 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         *this = q;*/
 
                         Integer q{0};
-                        auto temp_n{*this};
-                        auto temp_d{other};
-                        Integer shift{0};
+                        Integer r{0};
+                        size_t const iMax{number() - 1};
 
-                        while (temp_d <= temp_n)
+                        for (size_t i{iMax}; i <= iMax; --i)
                         {
-                            temp_d <<= 1;
-                            ++shift;
-                        }
+                            r <<= 1;
+                            r.setBit(0, bit(i));
 
-                        while (shift > 0)
-                        {
-                            temp_d >>= 1;
-                            --shift;
-
-                            if (temp_n >= temp_d)
+                            if (r >= other.abs())
                             {
-                                temp_n -= temp_d;
-                                q |= Integer{1} << shift;
+                                r -= other.abs();
+                                q.setBit(i, true);
                             }
                         }
+
+                        std::cout << abs().toString(2) << std::endl;
+                        std::cout << (q * other.abs() + r).toString(2) << std::endl;
+                        assert(abs() == q * other.abs() + r);
 
                         *this = q;
                     }
@@ -550,8 +547,16 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         for (auto const& b : n2.bits_)
                             std::cout << (unsigned long long)b << " ";
                         std::cout << std::endl;
-                        *this -= other * n;*/
-                        *this -= other * (*this / other);
+                        *this -= other * n;*//*
+                        std::cout << "q ";
+                        for (auto const& b : (*this / other).bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        std::cout << std::endl;
+                        std::cout << "r ";
+                        for (auto const& b : (*this - other * (*this / other)).bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        std::cout << std::endl;
+                        *this -= other * (*this / other);*/
 /**
                         auto temp_d{other.abs()};
                         Integer temp_q{1};
@@ -604,6 +609,25 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         std::cout << (temp_d <= r) << std::endl;
 
                         *this = r;**/
+                        Integer q{0};
+                        Integer r{0};
+                        size_t const iMax{number() - 1};
+
+                        for (size_t i{iMax}; i <= iMax; --i)
+                        {
+                            r <<= 1;
+                            r.setBit(0, bit(i));
+
+                            if (r >= other.abs())
+                            {
+                                r -= other.abs();
+                                q.setBit(i, true);
+                            }
+                        }
+
+                        assert(abs() == q * other.abs() + r);
+
+                        *this = r;
                     }
                 }
                 else if (isPositive_ && !other.isPositive_)
@@ -618,14 +642,16 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             }
 
-            assert(abs() < other.abs());
+            if (!(abs() < other.abs())){
+                assert(abs() < other.abs());
+            }
 
             return *this;
         }
 
         Integer& operator<<=(Integer other)
         {
-            assert(other >= Integer{'\0'});
+            assert(other >= 0);
 
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
             auto const n{other / s};
@@ -663,7 +689,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
         Integer& operator>>=(Integer other)
         {
-            assert(other >= Integer{'\0'});
+            assert(other >= 0);
 
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
             auto const n{other / s};
@@ -1464,6 +1490,92 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             n.setInfinity();
 
             return n;
+        }
+
+        bool bit(size_t n) const noexcept
+        {
+            auto it{bits_.rbegin()};
+
+            while (it != bits_.rend() && n > sizeof(T) * 8)
+            {
+                n -= sizeof(T) * 8;
+                ++it;
+            }
+
+            if (it == bits_.rend())
+                return false;
+
+            return *it & (T{1} << n);
+        }
+
+        void setBit(size_t n, bool bit)
+        {
+            auto it{bits_.rbegin()};
+
+            while (n > sizeof(T) * 8)
+            {
+                n -= sizeof(T) * 8;
+                ++it;
+
+                if (it == bits_.rend())
+                {
+                    std::vector<T> bits(bits_.size() + 1, T{0});
+
+                    std::copy(bits_.rbegin(), bits_.rend(), bits.rbegin());
+
+                    bits_ = bits;
+
+                    it = bits_.rend() - 1;
+                }
+            }
+
+            if (bit)
+                *it |= T{1} << n;
+            else
+                *it &= ~(T{1} << n);
+        }
+
+        size_t count() const noexcept
+        {
+            size_t count{0};
+
+            for (auto b : bits_)
+            {
+                while (b)
+                {
+                    if (b & 1)
+                        ++count;
+
+                    b >>= 1;
+                }
+            }
+
+            return count;
+        }
+
+        size_t number() const noexcept
+        {
+            size_t number{0};
+
+            auto it{bits_.begin()};
+
+            while (!*it && it != bits_.end())
+                ++it;
+
+            if (it != bits_.end())
+            {
+                auto b{*it};
+
+                while (b)
+                {
+                    ++number;
+                    b >>= 1;
+                }
+
+                number += (std::distance(it, bits_.end()) - 1) * sizeof(T) * 8;
+            }
+
+            return number;
         }
 
     private:

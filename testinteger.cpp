@@ -7,6 +7,7 @@ class TestInteger : public QObject
     private slots:
         void testAddition();
         void testAnd();
+        void testBits();
         void testChar();
         void testDivision();
         void testEqualities();
@@ -61,6 +62,40 @@ void TestInteger::testAnd()
     QVERIFY((Integer<unsigned char>{a} & b).template cast<unsigned long long>() == (a & b));
 }
 
+void TestInteger::testBits()
+{
+    {
+        std::string const s{"0b10001000101011110010"};
+        Integerc const n{s, 2};
+
+        size_t k{0};
+
+        while (s[s.size() - 1 - k] != 'b')
+        {
+            QVERIFY(static_cast<char>('0' + n.bit(k)) == s[s.size() - 1 - k]);
+            ++k;
+        }
+
+        QVERIFY(n.count() == 9);
+        QVERIFY(n.number() == 20);
+    }
+
+    {
+        std::string const s{"0b10001000101011110010"};
+        Integerc n{'\0'};
+
+        size_t k{0};
+
+        while (s[s.size() - 1 - k] != 'b')
+        {
+            n.setBit(k, s[s.size() - 1 - k] == '1');
+            ++k;
+        }
+
+        QVERIFY((n == Integerc{s, 2}));
+    }
+}
+
 void TestInteger::testChar()
 {
     QVERIFY(!Integer<unsigned char>{'\0'});
@@ -71,6 +106,7 @@ void TestInteger::testChar()
 
 void TestInteger::testDivision()
 {
+    QVERIFY(Integer<unsigned char>{12} / 4 == 3);
     QVERIFY(Integer<unsigned char>{2} / 3 == 0);
     QVERIFY(Integer<unsigned char>{3} / 2 == 1);
     QVERIFY(Integer<unsigned char>{4} / 2 == 2);
@@ -178,7 +214,10 @@ void TestInteger::testMultiplication()
         std::random_device rd;
         unsigned long const a{rd()};
         unsigned long const b{rd()};
-        mpz_class const n{mpz_class{a} * mpz_class{b}};
+        mpz_class const n{mpz_class{a} * mpz_class{b}};/*
+        std::cout << (Integer<unsigned char>{a} * b).toString() << std::endl;
+        std::cout << n.get_str() << std::endl;
+        assert(0);*/
         QVERIFY((Integer<unsigned char>{a} * b).toString() == n.get_str());
     }
 }

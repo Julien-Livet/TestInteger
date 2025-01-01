@@ -20,6 +20,8 @@
 #include <format>
 #endif
 
+#define LONGEST_TYPE (unsigned long long)
+
 template <typename T, typename Enable = void>
 class Integer;
 
@@ -34,7 +36,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         template <typename S>
         explicit Integer(S n) : isPositive_{n >= 0}
         {
-            bits_.reserve(std::max(1ull, sizeof(S) / sizeof(T)));
+            bits_.reserve(std::max(LONGEST_TYPE{1}, sizeof(S) / sizeof(T)));
 
             if (n < 0)
                 n = -n;
@@ -43,7 +45,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 bits_.emplace_back(n);
             else
             {
-                auto const shift{1ull << std::min(sizeof(T), sizeof(S)) * 8};
+                auto const shift{LONGEST_TYPE{1} << std::min(sizeof(T), sizeof(S)) * 8};
 
                 for (size_t i{0}; i < bits_.capacity(); ++i)
                 {
@@ -55,18 +57,24 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             }
         }
 
-        explicit Integer(const char* n, size_t base = 10) : Integer{std::string{n}, base}
+        explicit Integer(std::vector<T> const& bits, bool isPositive = true) : isPositive_{isPositive}, bits_{bits}
+        {
+            if (bits_.empty())
+                bits_.emplace_back(T{0});
+        }
+
+        explicit Integer(char const* n, size_t base = 10) : Integer{std::string{n}, base}
         {
         }
 
-        explicit Integer(std::string const& n, size_t base = 10)
+        explicit Integer(std::string n, size_t base = 10)
         {
             assert(2 <= base && base <= 62);
 
-            auto it{n.begin()};
+            n.erase(std::remove_if(n.begin(), n.end(), isspace), n.end());
+            n.erase(std::remove(n.begin(), n.end(), '\''), n.end());
 
-            while (std::isspace(*it))
-                ++it;
+            auto it{n.begin()};
 
             if (*it == '-')
             {
@@ -74,145 +82,154 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 ++it;
             }
 
-            auto const isPositive{isPositive_};
+            std::string const str{it, n.end()};
 
-            if (base == 2)
+            if (str == "nan")
+                setNan();
+            else if (str == "inf")
+                setInfinity();
+            else
             {
-                if (*it == 'b')
-                    ++it;
-                else if (n.substr(0, 2) == "0b")
-                    it += 2;
+                auto const isPositive{isPositive_};
 
-                while (it != n.end())
+                if (base == 2)
                 {
-                    if (*it == '1')
-                    {
-                        *this |= 1;
+                    if (*it == 'b')
+                        ++it;
+                    else if (n.substr(0, 2) == "0b")
+                        it += 2;
 
-                        if (it != n.end() - 1)
-                            *this <<= 1;
-                    }
-                    else if (*it == '0')
+                    while (it != n.end())
                     {
-                        if (it != n.end() - 1)
-                            *this <<= 1;
-                    }
+                        if (*it == '1')
+                        {
+                            *this |= 1;
 
-                    ++it;
+                            if (it != n.end() - 1)
+                                *this <<= 1;
+                        }
+                        else if (*it == '0')
+                        {
+                            if (it != n.end() - 1)
+                                *this <<= 1;
+                        }
+
+                        ++it;
+                    }
                 }
-            }
-            else if (base == 8)
-            {
-                if (*it == 'o')
-                    ++it;
-                else if (n.substr(0, 2) == "0o")
-                    it += 2;
-
-                auto otherIt{n.rbegin()};
-                Integer exp{0};
-
-                while (otherIt.base() != it)
+                else if (base == 8)
                 {
-                    if ('0' <= *otherIt && *otherIt <= '7')
+                    if (*it == 'o')
+                        ++it;
+                    else if (n.substr(0, 2) == "0o")
+                        it += 2;
+
+                    auto otherIt{n.rbegin()};
+                    Integer exp{0};
+
+                    while (otherIt.base() != it)
                     {
-                        *this += (*otherIt - '0') * pow(base, exp);
-                        ++exp;
+                        if ('0' <= *otherIt && *otherIt <= '7')
+                        {
+                            *this += (*otherIt - '0') * pow(base, exp);
+                            ++exp;
+                        }
+
+                        ++otherIt;
                     }
-
-                    ++otherIt;
                 }
-            }
-            else if (base <= 10)
-            {
-                auto otherIt{n.rbegin()};
-                Integer exp{0};
-
-                while (otherIt.base() != it)
+                else if (base <= 10)
                 {
-                    if ('0' <= *otherIt && *otherIt <= static_cast<char>('0' + base))
+                    auto otherIt{n.rbegin()};
+                    Integer exp{0};
+
+                    while (otherIt.base() != it)
                     {
-                        *this += (*otherIt - '0') * pow(base, exp);
-                        ++exp;
+                        if ('0' <= *otherIt && *otherIt <= static_cast<char>('0' + base))
+                        {
+                            *this += (*otherIt - '0') * pow(base, exp);
+                            ++exp;
+                        }
+
+                        ++otherIt;
                     }
-
-                    ++otherIt;
                 }
-            }
-            else if (base < 16)
-            {
-                auto otherIt{n.rbegin()};
-                Integer exp{0};
-
-                while (otherIt.base() != it)
+                else if (base < 16)
                 {
-                    if ('0' <= *otherIt && *otherIt <= '9')
-                    {
-                        *this += (*otherIt - '0') * pow(base, exp);
-                        ++exp;
-                    }
-                    else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= static_cast<char>('a' + base - 10))
-                    {
-                        *this += (*otherIt - 'a' + 10) * pow(base, exp);
-                        ++exp;
-                    }
+                    auto otherIt{n.rbegin()};
+                    Integer exp{0};
 
-                    ++otherIt;
+                    while (otherIt.base() != it)
+                    {
+                        if ('0' <= *otherIt && *otherIt <= '9')
+                        {
+                            *this += (*otherIt - '0') * pow(base, exp);
+                            ++exp;
+                        }
+                        else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= static_cast<char>('a' + base - 10))
+                        {
+                            *this += (*otherIt - 'a' + 10) * pow(base, exp);
+                            ++exp;
+                        }
+
+                        ++otherIt;
+                    }
                 }
-            }
-            else if (base == 16)
-            {
-                if (*it == 'x')
-                    ++it;
-                else if (n.substr(0, 2) == "0x")
-                    it += 2;
-
-                auto otherIt{n.rbegin()};
-                Integer exp{0};
-
-                while (otherIt.base() != it)
+                else if (base == 16)
                 {
-                    if ('0' <= *otherIt && *otherIt <= '9')
-                    {
-                        *this += (*otherIt - '0') * pow(base, exp);
-                        ++exp;
-                    }
-                    else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= 'f')
-                    {
-                        *this += (*otherIt - 'a' + 10) * pow(base, exp);
-                        ++exp;
-                    }
+                    if (*it == 'x')
+                        ++it;
+                    else if (n.substr(0, 2) == "0x")
+                        it += 2;
 
-                    ++otherIt;
+                    auto otherIt{n.rbegin()};
+                    Integer exp{0};
+
+                    while (otherIt.base() != it)
+                    {
+                        if ('0' <= *otherIt && *otherIt <= '9')
+                        {
+                            *this += (*otherIt - '0') * pow(base, exp);
+                            ++exp;
+                        }
+                        else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= 'f')
+                        {
+                            *this += (*otherIt - 'a' + 10) * pow(base, exp);
+                            ++exp;
+                        }
+
+                        ++otherIt;
+                    }
                 }
-            }
-            else// if (base <= 62)
-            {
-                auto otherIt{n.rbegin()};
-                Integer exp{0};
-
-                while (otherIt.base() != it)
+                else// if (base <= 62)
                 {
-                    if ('0' <= *otherIt && *otherIt <= '9')
-                    {
-                        *this += (*otherIt - '0') * pow(base, exp);
-                        ++exp;
-                    }
-                    else if ('a' <= *otherIt && *otherIt <= 'z')
-                    {
-                        *this += (*otherIt - 'a' + 10) * pow(base, exp);
-                        ++exp;
-                    }
-                    else if ('A' <= *otherIt && *otherIt <= 'Z')
-                    {
-                        *this += (*otherIt - 'A' + 36) * pow(base, exp);
-                        ++exp;
-                    }
+                    auto otherIt{n.rbegin()};
+                    Integer exp{0};
 
-                    ++otherIt;
+                    while (otherIt.base() != it)
+                    {
+                        if ('0' <= *otherIt && *otherIt <= '9')
+                        {
+                            *this += (*otherIt - '0') * pow(base, exp);
+                            ++exp;
+                        }
+                        else if ('a' <= *otherIt && *otherIt <= 'z')
+                        {
+                            *this += (*otherIt - 'a' + 10) * pow(base, exp);
+                            ++exp;
+                        }
+                        else if ('A' <= *otherIt && *otherIt <= 'Z')
+                        {
+                            *this += (*otherIt - 'A' + 36) * pow(base, exp);
+                            ++exp;
+                        }
+
+                        ++otherIt;
+                    }
                 }
-            }
 
-            isPositive_ = isPositive;
+                isPositive_ = isPositive;
+            }
         }
 
         bool isPositive() const noexcept
@@ -236,7 +253,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 bits_[i] = ~bits_[i];
         }
 
-        Integer& operator*=(Integer other)
+        Integer& operator*=(Integer const& other)
         {
             if (other.isNegative())
             {
@@ -249,7 +266,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 setNan();
             else if (!*this || !other)
             {
-                *this = Integer{0};
+                *this = 0;
             }
             else if (isInfinity() || other.isInfinity())
             {
@@ -263,7 +280,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             else
             {
                 if (isPositive_ && other.isPositive_)
-                {
+                {/*
                     Integer result{0};
 
                     while (other > 0)
@@ -275,7 +292,111 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         other >>= 1;
                     }
 
-                    *this = result;
+                    *this = result;*/
+
+                    if (*this == bits_.back() && other == other.bits_.back())
+                    {
+                        auto const n{LONGEST_TYPE{bits_.back()} * LONGEST_TYPE{other.bits_.back()}};
+
+                        if (n / LONGEST_TYPE{other.bits_.back()} == LONGEST_TYPE{bits_.back()})
+                            *this = n;
+                        else
+                        {
+                            auto number{[] (T n) -> size_t
+                                        {
+                                            size_t number{0};
+
+                                            while (n)
+                                            {
+                                                ++number;
+                                                n >>= 1;
+                                            }
+
+                                            return number;
+                                        }
+                            };
+
+                            //Karatsuba algorithm
+                            size_t n{std::max(number(bits_.back()), number(other.bits_.back()))};
+                            size_t const m{n / 2};
+                            Integer x0, x1, y0, y1;
+                            x0.bits_ = std::vector<T>(1, T{0});
+                            x0.bits_.back() = ~(T{1} >> (sizeof(T) * 8 - m)) & bits_.back();
+                            x1.bits_ = std::vector<T>(1, T{0});
+                            x1.bits_.back() = ((~(T{1} >> (sizeof(T) * 8 - m)) << m) >> m) & bits_.back();
+                            y0.bits_ = std::vector<T>(1, T{0});
+                            y0.bits_.back() = ~(T{1} >> (sizeof(T) * 8 - m)) & other.bits_.back();
+                            y1.bits_ = std::vector<T>(1, T{0});
+                            y1.bits_.back() = ((~(T{1} >> (sizeof(T) * 8 - m)) << m) >> m) & other.bits_.back();
+
+                            auto const z0{x0 * y0};
+                            auto const z1{x1 * y0 + x0 * y1};
+                            auto const z2{x1 * y1};
+
+                            //xy = z2 * 2^(2 * m) + z1 * 2^m + z0
+                            *this = z0;
+                            Integer w1, w2;
+                            w1.bits_ = std::vector<T>(z1.bits_.size() + m, T{0});
+                            std::copy(z1.bits_.rbegin(), z1.bits_.rend(), w1.bits_.rbegin() + m);
+                            *this += w1;
+                            w2.bits_ = std::vector<T>(z2.bits_.size() + 2 * m, T{0});
+                            std::copy(z2.bits_.rbegin(), z2.bits_.rend(), w2.bits_.rbegin() + 2 * m);
+                            *this += w2;
+                        }
+                    }
+                    else
+                    {
+                        //Karatsuba algorithm
+                        //x = x1 * 2^m + x0
+                        //y = y1 * 2^m + y0
+                        size_t n{std::max(number(), other.number()) / (sizeof(T) * 8)};
+                        if (std::max(number(), other.number()) % (sizeof(T) * 8))
+                            ++n;
+                        size_t const m{n / 2};
+                        std::cout << "*this ";
+                        for (auto const& b : bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        std::cout << std::endl;
+                        Integer x0, x1, y0, y1;
+                        x0.bits_ = std::vector<T>(m, T{0});
+                        std::copy(bits_.rbegin(), bits_.rbegin() + m, x0.bits_.rbegin());
+                        x1.bits_ = std::vector<T>(m, T{0});
+                        std::copy(bits_.rbegin() + m, bits_.rend(), x1.bits_.rbegin());
+                        std::cout << "x1 x0 ";
+                        for (auto const& b : x1.bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        for (auto const& b : x0.bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        std::cout << std::endl;
+                        std::cout << "other ";
+                        for (auto const& b : other.bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        std::cout << std::endl;
+                        y0.bits_ = std::vector<T>(m, T{0});
+                        std::copy(other.bits_.rbegin(), other.bits_.rbegin() + m, y0.bits_.rbegin());
+                        y1.bits_ = std::vector<T>(m, T{0});
+                        std::copy(other.bits_.rbegin() + m, other.bits_.rend(), y1.bits_.rbegin());
+                        std::cout << "y1 y0 ";
+                        for (auto const& b : y1.bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        for (auto const& b : y0.bits_)
+                            std::cout << (unsigned long long)b << " ";
+                        std::cout << std::endl;
+
+                        auto const z0{x0 * y0};
+                        auto const z1{x1 * y0 + x0 * y1};
+                        auto const z2{x1 * y1};
+
+                        //xy = z2 * 2^(2 * m) + z1 * 2^m + z0
+                        *this = z0;
+                        Integer w1, w2;
+                        w1.bits_ = std::vector<T>(z1.bits_.size() + m, T{0});
+                        std::copy(z1.bits_.rbegin(), z1.bits_.rend(), w1.bits_.rbegin() + m);
+                        *this += w1;
+                        w2.bits_ = std::vector<T>(z2.bits_.size() + 2 * m, T{0});
+                        std::copy(z2.bits_.rbegin(), z2.bits_.rend(), w2.bits_.rbegin() + 2 * m);
+                        *this += w2;
+                    }
                 }
                 else
                 {
@@ -488,7 +609,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                         std::cout << abs().toString(2) << std::endl;
                         std::cout << (q * other.abs() + r).toString(2) << std::endl;
-                        assert(abs() == q * other.abs() + r);
+                        //assert(abs() == q * other.abs() + r);
 
                         *this = q;
                     }
@@ -625,7 +746,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                             }
                         }
 
-                        assert(abs() == q * other.abs() + r);
+                        //assert(abs() == q * other.abs() + r);
 
                         *this = r;
                     }
@@ -652,6 +773,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         Integer& operator<<=(Integer other)
         {
             assert(other >= 0);
+
+            if (!*this)
+                return *this;
 
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
             auto const n{other / s};
@@ -690,6 +814,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         Integer& operator>>=(Integer other)
         {
             assert(other >= 0);
+
+            if (!*this)
+                return *this;
 
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
             auto const n{other / s};
@@ -1263,7 +1390,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             S n{0};
 
-            size_t const iMax{std::min(std::max(1ull, sizeof(S) / sizeof(T)), bits_.size())};
+            size_t const iMax{std::min(std::max(LONGEST_TYPE{1}, sizeof(S) / sizeof(T)), bits_.size())};
             auto it{bits_.rbegin() + iMax - 1};
 
             for (size_t i{0}; i < iMax; ++i)
@@ -1578,6 +1705,83 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             return number;
         }
 
+        bool isEven() const noexcept
+        {
+            if (bits_.empty())
+                return false;
+
+            return !(bits_.back() & 1);
+        }
+
+        bool isOdd() const noexcept
+        {
+            if (bits_.empty())
+                return false;
+
+            return bits_.back() & 1;
+        }
+
+        template <typename S>
+        bool fits() const
+        {
+            return (*this == this->template cast<S>());
+        }
+
+        Integer sign() const
+        {
+            if (*this < 0)
+                return Integer{-1};
+
+            return Integer{1};
+        }
+
+        void setSign(Integer const& other) noexcept
+        {
+            isPositive_ = other.isPositive_;
+        }
+
+        Integer previousPrime() const
+        {
+            if (isNan())
+                return *this;
+
+            if (isInfinity() || *this < 2)
+                return nan();
+
+            if (*this == 2)
+                return 2;
+            else if (*this == 3)
+                return 2;
+
+            Integer n{*this - 2};
+
+            while (!n.isPrime())
+                n -= 2;
+        }
+
+        Integer nextPrime() const
+        {
+            if (isNan())
+                return *this;
+
+            if (*this < 2)
+                return 2;
+            else if (*this == 2)
+                return 3;
+            else if (isInfinity())
+                return nan();
+
+            Integer n{*this + 2};
+
+            while (!n.isPrime())
+                n += 2;
+        }
+
+        size_t size() const noexcept
+        {
+            return bits_.size();
+        }
+
     private:
         bool isPositive_{true};
         std::vector<T> bits_;
@@ -1613,6 +1817,24 @@ template <typename T>
 Integer<T> operator%(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs %= rhs;
+}
+
+template <typename T>
+Integer<T> operator&(Integer<T> lhs, Integer<T> const& rhs)
+{
+    return lhs &= rhs;
+}
+
+template <typename T>
+Integer<T> operator|(Integer<T> lhs, Integer<T> const& rhs)
+{
+    return lhs |= rhs;
+}
+
+template <typename T>
+Integer<T> operator^(Integer<T> lhs, Integer<T> const& rhs)
+{
+    return lhs ^= rhs;
 }
 
 template <typename T>

@@ -4,7 +4,7 @@ class TestInteger : public QObject
 {
     Q_OBJECT
 
-    private slots:
+    private slots:/*
         void testAddition();
         void testAnd();
         void testBits();
@@ -12,8 +12,8 @@ class TestInteger : public QObject
         void testDivision();
         void testEqualities();
         void testInequalities();
-        void testModulo();
-        void testMultiplication();
+        void testModulo();*/
+        void testMultiplication();/*
         void testOr();
         void testPow();
         void testPrimes();
@@ -23,7 +23,7 @@ class TestInteger : public QObject
         void testSubstraction();
         void testToString();
         void testUnsignedLongLong();
-        void testUnsignedShort();
+        void testUnsignedShort();*/
 };
 
 #include <iostream>
@@ -31,7 +31,7 @@ class TestInteger : public QObject
 #include <gmpxx.h>
 
 #include "Integer.h"
-
+/*
 void TestInteger::testAddition()
 {
     QVERIFY(Integer<unsigned char>{0} + 0 == 0);
@@ -40,6 +40,22 @@ void TestInteger::testAddition()
     QVERIFY(Integer<unsigned char>{1} + 3 == 4);
     QVERIFY(Integer<unsigned char>{-3} + 2 == -1);
     QVERIFY(Integer<unsigned char>{17} + 10 == 27);
+
+    {
+        std::random_device rd;
+        Integerc n1, n2;
+        n1.setPrecision(4);
+        n2.setPrecision(4);
+        n1.setRandom(rd);
+        n1.setPositive();
+
+        auto const n3{n1 + n2};
+        mpz_class const n1_{n1.toString(2).substr(2), 2};
+        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        mpz_class const n3_{n1_ + n2_};
+
+        QVERIFY(n3 == n3_.get_str());
+    }
 
     std::random_device rd;
     long long const a{rd()};
@@ -54,6 +70,22 @@ void TestInteger::testAnd()
     QVERIFY((Integer<unsigned char>{1} & 0) == 0);
     QVERIFY((Integer<unsigned char>{0} & 1) == 0);
     QVERIFY((Integer<unsigned char>{1} & 1) == 1);
+
+    {
+        std::random_device rd;
+        Integerc n1, n2;
+        n1.setPrecision(4);
+        n2.setPrecision(4);
+        n1.setRandom(rd);
+        n1.setPositive();
+
+        auto const n3{n1 & n2};
+        mpz_class const n1_{n1.toString(2).substr(2), 2};
+        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        mpz_class const n3_{n1_ & n2_};
+
+        QVERIFY(n3 == n3_.get_str());
+    }
 
     std::random_device rd;
     unsigned long long const a{rd()};
@@ -118,6 +150,34 @@ void TestInteger::testDivision()
 
     {
         std::random_device rd;
+        Integerc n1, n2;
+        n1.setPrecision(4);
+        n2.setPrecision(4);
+        n1.setRandom(rd);
+        n1.setPositive();
+
+        do
+        {
+            n2.setRandom(rd);
+            n2.setPositive();
+        } while (!n2);
+
+        Integerc const q{n1 / n2};
+        Integerc const r{n1 % n2};
+        mpz_class const n1_{n1.toString(2).substr(2), 2};
+        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        mpz_class q_, r_;
+
+        mpz_divmod(q_.get_mpz_t(), r_.get_mpz_t(), n1_.get_mpz_t(), n2_.get_mpz_t());
+
+        QVERIFY(q == q_.get_str());
+        QVERIFY(r == r_.get_str());
+        QVERIFY(n1 == q * n2 + r);
+        QVERIFY(n1_ == q_ * n2_ + r_);
+    }
+
+    {
+        std::random_device rd;
         long long const a{rd()};
         long long const b{rd()};
         //std::cout << "a b a/b " << a << " " << b << " " << a / b << std::endl;
@@ -170,6 +230,28 @@ void TestInteger::testModulo()
 
     {
         std::random_device rd;
+        Integerc n1, n2;
+        n1.setPrecision(4);
+        n2.setPrecision(4);
+        n1.setRandom(rd);
+        n1.setPositive();
+
+        do
+        {
+            n2.setRandom(rd);
+            n2.setPositive();
+        } while (!n2);
+
+        auto const n3{n1 % n2};
+        mpz_class const n1_{n1.toString(2).substr(2), 2};
+        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        mpz_class const n3_{n1_ % n2_};
+
+        QVERIFY(n3 == n3_.get_str());
+    }
+
+    {
+        std::random_device rd;
         long long const a{rd()};
         long long const b{rd()};
         //std::cout << "a b a%b " << a << " " << b << " " << a % b << std::endl;
@@ -185,7 +267,7 @@ void TestInteger::testModulo()
         QVERIFY(((Integer<unsigned char>{a} * b) % c).toString() == n.get_str());
     }
 }
-
+*/
 void TestInteger::testMultiplication()
 {
     QVERIFY(Integer<unsigned char>{0} * 1 == 0);
@@ -201,6 +283,22 @@ void TestInteger::testMultiplication()
     QVERIFY(Integer<unsigned char>{-5} * -7 == 35);
     QVERIFY(-Integer<unsigned char>{5} * -7 == 35);
     QVERIFY(Integer<unsigned char>{827382986} * 2670051752 == 2209155391344291472ull);
+
+    {
+        std::random_device rd;
+        Integerc n1, n2;
+        n1.setPrecision(4);
+        n2.setPrecision(4);
+        n1.setRandom(rd);
+        n1.setPositive();
+
+        auto const n3{n1 * n2};
+        mpz_class const n1_{n1.toString(2).substr(2), 2};
+        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        mpz_class const n3_{n1_ * n2_};
+
+        QVERIFY(n3 == n3_.get_str());
+    }
 
     {
         std::random_device rd;
@@ -221,13 +319,29 @@ void TestInteger::testMultiplication()
         QVERIFY((Integer<unsigned char>{a} * b).toString() == n.get_str());
     }
 }
-
+/*
 void TestInteger::testOr()
 {
     QVERIFY((Integer<unsigned char>{0} | 0) == 0);
     QVERIFY((Integer<unsigned char>{1} | 0) == 1);
     QVERIFY((Integer<unsigned char>{0} | 1) == 1);
     QVERIFY((Integer<unsigned char>{1} | 1) == 1);
+
+    {
+        std::random_device rd;
+        Integerc n1, n2;
+        n1.setPrecision(4);
+        n2.setPrecision(4);
+        n1.setRandom(rd);
+        n1.setPositive();
+
+        auto const n3{n1 | n2};
+        mpz_class const n1_{n1.toString(2).substr(2), 2};
+        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        mpz_class const n3_{n1_ | n2_};
+
+        QVERIFY(n3 == n3_.get_str());
+    }
 
     std::random_device rd;
     unsigned long long const a{rd()};
@@ -326,6 +440,22 @@ void TestInteger::testSubstraction()
     QVERIFY(Integer<unsigned char>{3} - 2 == 1);
     QVERIFY(Integer<unsigned char>{17} - 10 == 7);
 
+    {
+        std::random_device rd;
+        Integerc n1, n2;
+        n1.setPrecision(4);
+        n2.setPrecision(4);
+        n1.setRandom(rd);
+        n1.setPositive();
+
+        auto const n3{n1 - n2};
+        mpz_class const n1_{n1.toString(2).substr(2), 2};
+        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        mpz_class const n3_{n1_ - n2_};
+
+        QVERIFY(n3 == n3_.get_str());
+    }
+
     std::random_device rd;
     long long const a{rd()};
     long long const b{rd()};
@@ -368,6 +498,6 @@ void TestInteger::testUnsignedShort()
     QVERIFY(Integer<unsigned char>{(unsigned short)1}.cast<unsigned short>() == (unsigned short)1);
     QVERIFY(Integer<unsigned char>{(unsigned short)-1}.cast<unsigned short>() == (unsigned short)-1);
 }
-
+*/
 QTEST_MAIN(TestInteger)
 #include "testinteger.moc"

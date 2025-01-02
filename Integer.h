@@ -29,14 +29,14 @@ template <typename T>
 class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 {
     public:
-        Integer() : bits_{0}
+        Integer() : bits_{T{0}}
         {
         }
 
         template <typename S>
         explicit Integer(S n) : isPositive_{n >= 0}
         {
-            bits_.reserve(std::max(LONGEST_TYPE{1}, sizeof(S) / sizeof(T)));
+            bits_.reserve(std::max(LONGEST_TYPE{1}, LONGEST_TYPE{sizeof(S) / sizeof(T)}));
 
             if (n < 0)
                 n = -n;
@@ -82,7 +82,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 ++it;
             }
 
-            std::string const str{it, n.end()};
+            std::string str{it, n.end()};
+            std::transform(str.begin(), str.end(), str.begin(),
+                           [] (unsigned char c) { return std::tolower(c); });
 
             if (str == "nan")
                 setNan();
@@ -298,7 +300,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     {
                         auto const n{LONGEST_TYPE{bits_.back()} * LONGEST_TYPE{other.bits_.back()}};
 
-                        if (n / LONGEST_TYPE{other.bits_.back()} == LONGEST_TYPE{bits_.back()})
+                        if (!bits_.back() || !other.bits_.back() || n / LONGEST_TYPE{other.bits_.back()} == LONGEST_TYPE{bits_.back()})
                             *this = n;
                         else
                         {
@@ -320,13 +322,13 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                             size_t n{std::max(number(bits_.back()), number(other.bits_.back()))};
                             size_t const m{n / 2};
                             Integer x0, x1, y0, y1;
-                            x0.bits_ = std::vector<T>(1, T{0});
+                            ///x0.bits_ = std::vector<T>(1, T{0});
                             x0.bits_.back() = ~(T{1} >> (sizeof(T) * 8 - m)) & bits_.back();
-                            x1.bits_ = std::vector<T>(1, T{0});
+                            ///x1.bits_ = std::vector<T>(1, T{0});
                             x1.bits_.back() = ((~(T{1} >> (sizeof(T) * 8 - m)) << m) >> m) & bits_.back();
-                            y0.bits_ = std::vector<T>(1, T{0});
+                            ///y0.bits_ = std::vector<T>(1, T{0});
                             y0.bits_.back() = ~(T{1} >> (sizeof(T) * 8 - m)) & other.bits_.back();
-                            y1.bits_ = std::vector<T>(1, T{0});
+                            ///y1.bits_ = std::vector<T>(1, T{0});
                             y1.bits_.back() = ((~(T{1} >> (sizeof(T) * 8 - m)) << m) >> m) & other.bits_.back();
 
                             auto const z0{x0 * y0};
@@ -353,35 +355,15 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         if (std::max(number(), other.number()) % (sizeof(T) * 8))
                             ++n;
                         size_t const m{n / 2};
-                        std::cout << "*this ";
-                        for (auto const& b : bits_)
-                            std::cout << (unsigned long long)b << " ";
-                        std::cout << std::endl;
                         Integer x0, x1, y0, y1;
                         x0.bits_ = std::vector<T>(m, T{0});
                         std::copy(bits_.rbegin(), bits_.rbegin() + m, x0.bits_.rbegin());
                         x1.bits_ = std::vector<T>(m, T{0});
                         std::copy(bits_.rbegin() + m, bits_.rend(), x1.bits_.rbegin());
-                        std::cout << "x1 x0 ";
-                        for (auto const& b : x1.bits_)
-                            std::cout << (unsigned long long)b << " ";
-                        for (auto const& b : x0.bits_)
-                            std::cout << (unsigned long long)b << " ";
-                        std::cout << std::endl;
-                        std::cout << "other ";
-                        for (auto const& b : other.bits_)
-                            std::cout << (unsigned long long)b << " ";
-                        std::cout << std::endl;
                         y0.bits_ = std::vector<T>(m, T{0});
                         std::copy(other.bits_.rbegin(), other.bits_.rbegin() + m, y0.bits_.rbegin());
                         y1.bits_ = std::vector<T>(m, T{0});
                         std::copy(other.bits_.rbegin() + m, other.bits_.rend(), y1.bits_.rbegin());
-                        std::cout << "y1 y0 ";
-                        for (auto const& b : y1.bits_)
-                            std::cout << (unsigned long long)b << " ";
-                        for (auto const& b : y0.bits_)
-                            std::cout << (unsigned long long)b << " ";
-                        std::cout << std::endl;
 
                         auto const z0{x0 * y0};
                         auto const z1{x1 * y0 + x0 * y1};
@@ -439,8 +421,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                     for (size_t i{0}; i < n; ++i)
                     {
-                        T const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
-                        T const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
+                        auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
+                        auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
 
                         auto const sum{static_cast<T>(bit_a + bit_b + carry)};
                         carry = (sum - bit_b < bit_a + carry);
@@ -486,10 +468,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                     for (size_t i{0}; i < n; ++i)
                     {
-                        T const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
-                        T const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
+                        auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
+                        auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
 
-                        T const bit_result{bit_a - bit_b - borrow};
+                        auto const bit_result{static_cast<T>(bit_a - bit_b - borrow)};
                         borrow = (bit_result + bit_b > bit_a - borrow);
 
                         result.emplace_back(bit_result);
@@ -763,9 +745,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             }
 
-            if (!(abs() < other.abs())){
-                assert(abs() < other.abs());
-            }
+            assert(abs() < other.abs());
 
             return *this;
         }
@@ -1390,7 +1370,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             S n{0};
 
-            size_t const iMax{std::min(std::max(LONGEST_TYPE{1}, sizeof(S) / sizeof(T)), bits_.size())};
+            size_t const iMax{std::min(std::max(LONGEST_TYPE{1}, LONGEST_TYPE{sizeof(S) / sizeof(T)}), LONGEST_TYPE{bits_.size()})};
             auto it{bits_.rbegin() + iMax - 1};
 
             for (size_t i{0}; i < iMax; ++i)
@@ -1660,6 +1640,20 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 *it |= T{1} << n;
             else
                 *it &= ~(T{1} << n);
+        }
+
+        void setBits(size_t n, T const& bits)
+        {
+            if (bits_.size() < n)
+            {
+                std::vector<T> bits(n, T{0});
+
+                std::copy(bits_.rbegin(), bits_.rend(), bits.rbegin());
+
+                bits_ = bits;
+            }
+
+            bits_[bits_.size() - 1 - n] = bits;
         }
 
         size_t count() const noexcept

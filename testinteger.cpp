@@ -149,6 +149,24 @@ void TestInteger::testDivision()
     QVERIFY(Integerc(6) / 3 == 2);
 
     {
+        auto const qr1{computeQr(Integerc(10), 3)};
+        QVERIFY(qr1.first == 3);
+        QVERIFY(qr1.second == 1);
+
+        auto const qr2{computeQr(Integerc(10), -3)};
+        QVERIFY(qr2.first == -4);
+        QVERIFY(qr2.second == -2);
+
+        auto const qr3{computeQr(Integerc(-10), -3)};
+        QVERIFY(qr3.first == 4);
+        QVERIFY(qr3.second == -2);
+
+        auto const qr4{computeQr(Integerc(-10), 3)};
+        QVERIFY(qr4.first == -4);
+        QVERIFY(qr4.second == 2);
+    }
+
+    {
         std::random_device rd;
         Integerc n1, n2;
         n1.setPrecision(4);

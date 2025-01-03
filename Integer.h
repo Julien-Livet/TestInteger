@@ -362,21 +362,35 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         //Karatsuba algorithm
                         //x = x1 * 2^m + x0
                         //y = y1 * 2^m + y0
-                        size_t n{std::max(number(), other.number()) / (sizeof(T) * 8)};
-                        if (std::max(number(), other.number()) % (sizeof(T) * 8))
-                            ++n;
-                        if (n % 2)
-                            ++n;
+                        size_t n1{number() / (sizeof(T) * 8)};
+                        if (number() % (sizeof(T) * 8))
+                            ++n1;
+                        if (n1 % 2)
+                            ++n1;
+                        size_t n2{other.number() / (sizeof(T) * 8)};
+                        if (other.number() % (sizeof(T) * 8))
+                            ++n2;
+                        if (n2 % 2)
+                            ++n2;
+                        size_t const n{std::max(n1, n2)};
                         size_t const m{n / 2};
                         Integer x0, x1, y0, y1;
                         x0.bits_ = std::vector<T>(m, T{0});
-                        std::copy(bits_.rbegin(), bits_.rbegin() + m, x0.bits_.rbegin());
+                        std::copy(bits_.rbegin(),
+                                  bits_.rbegin() + std::min(n1 / 2, m),
+                                  x0.bits_.rbegin());
                         x1.bits_ = std::vector<T>(m, T{0});
-                        std::copy(bits_.rbegin() + m, bits_.rend(), x1.bits_.rbegin());
+                        std::copy(bits_.rbegin() + std::min(n1 / 2, m),
+                                  bits_.rbegin() + std::min(bits_.size(), m),
+                                  x1.bits_.rbegin());
                         y0.bits_ = std::vector<T>(m, T{0});
-                        std::copy(other.bits_.rbegin(), other.bits_.rbegin() + m, y0.bits_.rbegin());
+                        std::copy(other.bits_.rbegin(),
+                                  other.bits_.rbegin() + std::min(n2 / 2, m),
+                                  y0.bits_.rbegin());
                         y1.bits_ = std::vector<T>(m, T{0});
-                        std::copy(other.bits_.rbegin() + m, other.bits_.rend(), y1.bits_.rbegin());
+                        std::copy(other.bits_.rbegin() + std::min(n2 / 2, m),
+                                  other.bits_.rbegin() + std::min(other.bits_.size(), m),
+                                  y1.bits_.rbegin());
 
                         auto const z0(x0 * y0);
                         auto const z1(x1 * y0 + x0 * y1);
@@ -1028,7 +1042,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         s = "0";
 
                     auto const n{static_cast<T>(std::log10(static_cast<T>(~T{0})))};
-                    Integer const b(pow(Integer(10), n));
+                    T const b(pow(T{10}, n));
 
                     while (number)
                     {
@@ -1383,7 +1397,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
         static Integer nan()
         {
-            Integer n;
+            static Integer n;
             n.setNan();
 
             return n;

@@ -2083,9 +2083,8 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
 
     while (start <= end)
     {
-        auto mid(end - start);
+        auto mid(end + start);
         mid >>= 1;
-        mid += start;
         std::cout << "mid ";
         for (auto const& b : mid.bits())
             std::cout << b << " ";
@@ -2144,9 +2143,8 @@ constexpr Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
 
     while (start <= end)
     {
-        auto mid(end - start);
+        auto mid(end + start);
         mid >>= 1;
-        mid += start;
 
         auto n(dividend - divisor * mid);
 

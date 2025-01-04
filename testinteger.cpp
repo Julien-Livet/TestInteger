@@ -538,10 +538,16 @@ void TestInteger::testUnsignedLongLong()
 
         auto const qr{computeQr(dividend, divisor)};
 
-        std::cout << "q " << qr.first << std::endl;
-        std::cout << "r " << qr.second << std::endl;
-        //QVERIFY(qr.first == 452240028370ull);
-        //QVERIFY(qr.second == "2511973644799747096503184818228555377241860558862408039904124816691570905857945011775");
+        std::cout << "q ";
+        for (auto const& b : qr.first.bits())
+            std::cout << b << " ";
+        std::cout << std::endl;
+        std::cout << "r ";
+        for (auto const& b : qr.second.bits())
+            std::cout << b << " ";
+        std::cout << std::endl;
+        QVERIFY(qr.first == 452240028370ull);
+        QVERIFY(qr.second == "2511973644799747096503184818228555377241860558862408039904124816691570905857945011775");
     }
 }
 

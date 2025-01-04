@@ -536,6 +536,8 @@ void TestInteger::testUnsignedLongLong()
         Integerll const divisor{35521434ull, 14919252733983618111ull, 1302913595559511957ull,
                                 9115028167675518012ull, 17539966127645434034ull};
 
+        QVERIFY(divisor * 452240028370ull == "1860108980409718597998329855093233652496243230041402151984391328752685442362998644380535488288260");
+        
         auto const qr{computeQr(dividend, divisor)};
 
         std::cout << "q ";

@@ -2069,9 +2069,6 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
         return qr;
     }
 
-    std::function<std::pair<Integer<T>, Integer<T> >(Integer<T> const&, Integer<T> const&,
-                                                     Integer<T>, Integer<T>)> findQr;
-
     std::cout << "dividend " << std::endl;
     for (auto const& b : dividend.bits())
         std::cout << b << " ";
@@ -2089,7 +2086,10 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
         auto mid(end - start);
         mid >>= 1;
         mid += start;
-
+        std::cout << "mid ";
+        for (auto const& b : mid.bits())
+            std::cout << b << " ";
+        std::cout << std::endl;
         auto n(dividend - divisor * mid);
 
         if (n > divisor)

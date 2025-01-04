@@ -541,7 +541,7 @@ void TestInteger::testUnsignedLongLong()
         std::cout << "q " << qr.first << std::endl;
         std::cout << "r " << qr.second << std::endl;
         //QVERIFY(qr.first == 452240028370ull);
-        //QVERIFY(qr.second == );
+        //QVERIFY(qr.second == "2511973644799747096503184818228555377241860558862408039904124816691570905857945011775");
     }
 }
 

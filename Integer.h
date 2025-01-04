@@ -1483,6 +1483,14 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 *it &= ~(T{1} << n);
         }
 
+        constexpr T bits(size_t n) const noexcept
+        {
+            if (n >= bits_.size())
+                return T{0};
+
+            return bits_[bits_.size() - 1 - n];
+        }
+
         constexpr void setBits(size_t n, T const& bits)
         {
             if (bits_.size() < n)
@@ -2128,11 +2136,11 @@ constexpr Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
     else if (divisor.abs() > dividend.abs())
         return Integer<T>{0};
     else if (dividend < 0 && divisor < 0)
-        return computeQr(-dividend, -divisor).first;
+        return computeQuotient(-dividend, -divisor).first;
     else if (dividend > 0 && divisor < 0)
-        return -computeQr(dividend, -divisor).first;
+        return -computeQuotient(dividend, -divisor).first;
     else if (dividend < 0 && divisor > 0)
-        return -computeQr(-dividend, divisor).first;
+        return -computeQuotient(-dividend, divisor).first;
 
     std::function<std::pair<Integer<T>, Integer<T> >(Integer<T> const&, Integer<T> const&,
                                                      Integer<T>, Integer<T>)> findQr;

@@ -531,10 +531,10 @@ void TestInteger::testUnsignedLongLong()
     }
 
     {
-        Integer const dividend{16064214685684893896ull, 1233950369490649711ull, 6706106583984356886ull,
-                               13049457702161808613ull, 14797807619686341699ull};
-        Integer const divisor{35521434ull, 14919252733983618111ull, 1302913595559511957ull,
-                              9115028167675518012ull, 17539966127645434034ull};
+        Integerll const dividend{16064214685684893896ull, 1233950369490649711ull, 6706106583984356886ull,
+                                 13049457702161808613ull, 14797807619686341699ull};
+        Integerll const divisor{35521434ull, 14919252733983618111ull, 1302913595559511957ull,
+                                9115028167675518012ull, 17539966127645434034ull};
 
         auto const qr{computeQr(dividend, divisor)};
 

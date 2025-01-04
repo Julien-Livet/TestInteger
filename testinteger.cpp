@@ -411,7 +411,7 @@ void TestInteger::testShift()
         unsigned long long const a{rd()};
         unsigned long long const b{rd() % 32};
         //std::cout << "a b a<<b " << a << " " << b << " " << (a << b) << std::endl;
-        QVERIFY((Integerc(a) << b).template cast<long long>() == a << b);
+        QVERIFY((Integerc(a) << b).template cast<unsigned long long>() == a << b);
     }
 
     {
@@ -419,7 +419,7 @@ void TestInteger::testShift()
         a <<= 32;
         unsigned long long const b{rd() % 32};
         //std::cout << "a b a>>b " << a << " " << b << " " << (a >> b) << std::endl;
-        QVERIFY((Integerc(a) >> b).template cast<long long>() == a >> b);
+        QVERIFY((Integerc(a) >> b).template cast<unsigned long long>() == a >> b);
     }
 }
 
@@ -501,6 +501,48 @@ void TestInteger::testUnsignedLongLong()
     QVERIFY(!Integerll(0ull));
     QVERIFY(Integerll(1ull) == 1);
     QVERIFY(Integerll(1ull).cast<unsigned long long>() == 1ull);
+
+    {
+        Integerll n(~0ull);
+
+        QVERIFY(n.bits().size() == 1 && n.bits().back() == ~0ull);
+
+        n += 1;
+
+        QVERIFY(n.bits().size() == 2 && n.bits()[0] == 1 && n.bits()[1] == 0);
+
+        n -= 1;
+
+        QVERIFY(n.bits().size() == 2 && n.bits()[0] == 0 && n.bits()[1] == ~0ull);
+    }
+
+    {
+        Integerll const p(pow(Integerll(10), 20));
+
+        QVERIFY(p.bits().size() == 2 && p.bits()[0] == 5 && p.bits()[1] == 7766279631452241920ull);
+    }
+
+    {
+        Integerll p(pow(Integerll(10), 21));
+
+        p *= 10;
+
+        QVERIFY(p.bits().size() == 2 && p.bits()[0] == 542 && p.bits()[1] == 1864712049423024128ull);
+    }
+
+    {
+        Integer const dividend{16064214685684893896ull, 1233950369490649711ull, 6706106583984356886ull,
+                               13049457702161808613ull, 14797807619686341699ull};
+        Integer const divisor{35521434ull, 14919252733983618111ull, 1302913595559511957ull,
+                              9115028167675518012ull, 17539966127645434034ull};
+
+        auto const qr{computeQr(dividend, divisor)};
+
+        std::cout << "q " << qr.first << std::endl;
+        std::cout << "r " << qr.second << std::endl;
+        //QVERIFY(qr.first == 452240028370ull);
+        //QVERIFY(qr.second == );
+    }
 }
 
 void TestInteger::testUnsignedShort()

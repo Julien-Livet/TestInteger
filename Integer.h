@@ -147,14 +147,14 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         it += 2;
 
                     auto otherIt{n.rbegin()};
-                    Integer exp{0};
+                    Integer p(1);
 
                     while (otherIt.base() != it)
                     {
                         if ('0' <= *otherIt && *otherIt <= '7')
                         {
-                            *this += (*otherIt - '0') * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - '0') * p;
+                            p *= base;
                         }
 
                         ++otherIt;
@@ -163,14 +163,14 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 else if (base <= 10)
                 {
                     auto otherIt{n.rbegin()};
-                    Integer exp(0);
+                    Integer p(1);
 
                     while (otherIt.base() != it)
                     {
                         if ('0' <= *otherIt && *otherIt <= static_cast<char>('0' + base))
                         {
-                            *this += (*otherIt - '0') * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - '0') * p;
+                            p *= base;
                         }
 
                         ++otherIt;
@@ -179,19 +179,19 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 else if (base < 16)
                 {
                     auto otherIt{n.rbegin()};
-                    Integer exp(0);
+                    Integer p(1);
 
                     while (otherIt.base() != it)
                     {
                         if ('0' <= *otherIt && *otherIt <= '9')
                         {
-                            *this += (*otherIt - '0') * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - '0') * p;
+                            p *= base;
                         }
                         else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= static_cast<char>('a' + base - 10))
                         {
-                            *this += (*otherIt - 'a' + 10) * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - 'a' + 10) * p;
+                            p *= base;
                         }
 
                         ++otherIt;
@@ -205,19 +205,19 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         it += 2;
 
                     auto otherIt{n.rbegin()};
-                    Integer exp(0);
+                    Integer p(1);
 
                     while (otherIt.base() != it)
                     {
                         if ('0' <= *otherIt && *otherIt <= '9')
                         {
-                            *this += (*otherIt - '0') * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - '0') * p;
+                            p *= base;
                         }
                         else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= 'f')
                         {
-                            *this += (*otherIt - 'a' + 10) * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - 'a' + 10) * p;
+                            p *= base;
                         }
 
                         ++otherIt;
@@ -226,24 +226,24 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 else// if (base <= 62)
                 {
                     auto otherIt{n.rbegin()};
-                    Integer exp(0);
+                    Integer p(1);
 
                     while (otherIt.base() != it)
                     {
                         if ('0' <= *otherIt && *otherIt <= '9')
                         {
-                            *this += (*otherIt - '0') * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - '0') * p;
+                            p *= base;
                         }
                         else if ('a' <= *otherIt && *otherIt <= 'z')
                         {
-                            *this += (*otherIt - 'a' + 10) * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - 'a' + 10) * p;
+                            p *= base;
                         }
                         else if ('A' <= *otherIt && *otherIt <= 'Z')
                         {
-                            *this += (*otherIt - 'A' + 36) * pow(base, exp);
-                            ++exp;
+                            *this += (*otherIt - 'A' + 36) * p;
+                            p *= base;
                         }
 
                         ++otherIt;
@@ -333,28 +333,23 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                                 ++n;
                             size_t const m{n / 2};
                             Integer x0, x1, y0, y1;
-                            ///x0.bits_ = std::vector<T>(1, T{0});
+                            x0.bits_ = std::vector<T>(1, T{0});
                             x0.bits_.back() = (~T{0} >> (sizeof(T) * 8 - m)) & bits_.back();
-                            ///x1.bits_ = std::vector<T>(1, T{0});
+                            x1.bits_ = std::vector<T>(1, T{0});
                             x1.bits_.back() = (((~T{0} >> (sizeof(T) * 8 - m)) << m) & bits_.back()) >> m;
-                            ///y0.bits_ = std::vector<T>(1, T{0});
+                            y0.bits_ = std::vector<T>(1, T{0});
                             y0.bits_.back() = (~T{0} >> (sizeof(T) * 8 - m)) & other.bits_.back();
-                            ///y1.bits_ = std::vector<T>(1, T{0});
+                            y1.bits_ = std::vector<T>(1, T{0});
                             y1.bits_.back() = (((~T{0} >> (sizeof(T) * 8 - m)) << m) & other.bits_.back()) >> m;
 
                             auto const z0(x0 * y0);
-                            auto const z1(x1 * y0 + x0 * y1);
-                            auto const z2(x1 * y1);
+                            auto z1(x1 * y0 + x0 * y1);
+                            z1 <<= m;
+                            auto z2(x1 * y1);
+                            z2 <<= 2 * m;
 
                             //xy = z2 * 2^(2 * m) + z1 * 2^m + z0
-                            *this = z0;
-                            Integer w1, w2;
-                            w1.bits_ = std::vector<T>(z1.bits_.size() + m, T{0});
-                            std::copy(z1.bits_.rbegin(), z1.bits_.rend(), w1.bits_.rbegin() + m);
-                            *this += w1;
-                            w2.bits_ = std::vector<T>(z2.bits_.size() + 2 * m, T{0});
-                            std::copy(z2.bits_.rbegin(), z2.bits_.rend(), w2.bits_.rbegin() + 2 * m);
-                            *this += w2;
+                            *this = z0 + z1 + z2;
                         }
                     }
                     else
@@ -381,7 +376,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                                   x0.bits_.rbegin());
                         x1.bits_ = std::vector<T>(m, T{0});
                         std::copy(bits_.rbegin() + std::min(n1 / 2, m),
-                                  bits_.rbegin() + std::min(bits_.size(), m),
+                                  bits_.rbegin() + std::min(bits_.size(), n1),
                                   x1.bits_.rbegin());
                         y0.bits_ = std::vector<T>(m, T{0});
                         std::copy(other.bits_.rbegin(),
@@ -389,7 +384,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                                   y0.bits_.rbegin());
                         y1.bits_ = std::vector<T>(m, T{0});
                         std::copy(other.bits_.rbegin() + std::min(n2 / 2, m),
-                                  other.bits_.rbegin() + std::min(other.bits_.size(), m),
+                                  other.bits_.rbegin() + std::min(other.bits_.size(), n2),
                                   y1.bits_.rbegin());
 
                         auto const z0(x0 * y0);
@@ -405,6 +400,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         w2.bits_ = std::vector<T>(z2.bits_.size() + 2 * m, T{0});
                         std::copy(z2.bits_.rbegin(), z2.bits_.rend(), w2.bits_.rbegin() + 2 * m);
                         *this += w2;
+
+                        adjust();
                     }
                 }
                 else
@@ -450,9 +447,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     {
                         auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
                         auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
-
                         auto const sum{static_cast<T>(bit_a + bit_b + carry)};
-                        carry = (sum - bit_b < bit_a + carry);
+
+                        carry = (sum < bit_a || sum < bit_b);
 
                         result.emplace_back(sum);
                     }
@@ -497,9 +494,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     {
                         auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
                         auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
-
                         auto const bit_result{static_cast<T>(bit_a - bit_b - borrow)};
-                        borrow = (bit_result + bit_b > bit_a - borrow);
+
+                        borrow = (bit_result  > bit_a);
 
                         result.emplace_back(bit_result);
                     }
@@ -515,7 +512,13 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
         constexpr Integer& operator-=(Integer const& other)
         {
-            return *this += -other;
+            auto const n(*this);
+
+            *this += -other;
+
+            assert(n == *this + other);
+
+            return *this;
         }
 
         constexpr Integer& operator/=(Integer other)
@@ -574,10 +577,36 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         isPositive_ = isPositive;
                     }
                     else
-                        *this = computeQr(*this, other).second;
+                    {
+                        auto const qr{computeQr(*this, other)};
+                        *this = qr.second;
+
+                        std::cout << "q ";
+                        for (auto const& b : qr.first.bits_)
+                            std::cout << b << " ";
+                        std::cout << std::endl;
+                        std::cout << "r ";
+                        for (auto const& b : qr.second.bits_)
+                            std::cout << b << " ";
+                        std::cout << std::endl;
+                        //*this = computeQr(*this, other).second;
+                    }
                 }
                 else
-                    *this = computeQr(*this, other).second;
+                {
+                    auto const qr{computeQr(*this, other)};
+                    *this = qr.second;
+
+                    std::cout << "q ";
+                    for (auto const& b : qr.first.bits_)
+                        std::cout << b << " ";
+                    std::cout << std::endl;
+                    std::cout << "r ";
+                    for (auto const& b : qr.second.bits_)
+                        std::cout << b << " ";
+                    std::cout << std::endl;
+                    //*this = computeQr(*this, other).second;
+                }
             }
 
             assert(abs() < other.abs());
@@ -1595,6 +1624,22 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             return bits_.size();
         }
 
+        constexpr void adjust()
+        {
+            if (bits_.empty())
+                return;
+
+            auto it{bits_.begin()};
+
+            while (!*it && it != bits_.end())
+                ++it;
+
+            if (it == bits_.end())
+                it = bits_.end() - 1;
+
+            bits_ = std::vector<T>{it, bits_.end()};
+        }
+
     private:
         bool isPositive_{true};
         std::vector<T> bits_;
@@ -2019,34 +2064,43 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
     std::function<std::pair<Integer<T>, Integer<T> >(Integer<T> const&, Integer<T> const&,
                                                      Integer<T>, Integer<T>)> findQr;
 
+    std::cout << "dividend " << std::endl;
+    for (auto const& b : dividend.bits())
+        std::cout << b << " ";
+    std::cout << std::endl;
+    std::cout << "divisor " << std::endl;
+    for (auto const& b : divisor.bits())
+        std::cout << b << " ";
+    std::cout << std::endl;
+
     findQr = [&findQr] (Integer<T> const& dividend, Integer<T> const& divisor,
                        Integer<T> start, Integer<T> end) -> std::pair<Integer<T>, Integer<T> >
     {
-        if (start > end)
-            return {Integer<T>(0), dividend};
-
-        auto mid(end - start);
-        mid >>= 1;
-        mid += start;
-
-        auto n(dividend - divisor * mid);
-
-        if (n > divisor)
-            start = mid + 1;
-        else if (n < 0)
-            end = mid - 1;
-        else
+        while (start <= end)
         {
-            if (n == divisor)
-            {
-                ++mid;
-                n = 0;
-            }
+            auto mid(end - start);
+            mid >>= 1;
+            mid += start;
 
-            return {mid, n};
+            auto n(dividend - divisor * mid);
+
+            if (n > divisor)
+                start = mid + 1;
+            else if (n < 0)
+                end = mid - 1;
+            else
+            {
+                if (n == divisor)
+                {
+                    ++mid;
+                    n = 0;
+                }
+
+                return {mid, n};
+            }
         }
 
-        return findQr(dividend, divisor, start, end);
+        return {Integer<T>(0), dividend};
     };
 
     return findQr(dividend, divisor, Integer<T>(1), dividend);
@@ -2086,31 +2140,31 @@ constexpr Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
     findQr = [&findQr] (Integer<T> const& dividend, Integer<T> const& divisor,
                        Integer<T> start, Integer<T> end) -> std::pair<Integer<T>, Integer<T> >
     {
-        if (start > end)
-            return {Integer<T>(0), dividend};
-
-        auto mid(end - start);
-        mid >>= 1;
-        mid += start;
-
-        auto n(dividend - divisor * mid);
-
-        if (n > divisor)
-            start = mid + 1;
-        else if (n < 0)
-            end = mid - 1;
-        else
+        while (start <= end)
         {
-            if (n == divisor)
-            {
-                ++mid;
-                n = 0;
-            }
+            auto mid(end - start);
+            mid >>= 1;
+            mid += start;
 
-            return {mid, n};
+            auto n(dividend - divisor * mid);
+
+            if (n > divisor)
+                start = mid + 1;
+            else if (n < 0)
+                end = mid - 1;
+            else
+            {
+                if (n == divisor)
+                {
+                    ++mid;
+                    n = 0;
+                }
+
+                return {mid, n};
+            }
         }
 
-        return findQr(dividend, divisor, start, end);
+        return {Integer<T>(0), dividend};
     };
 
     return findQr(dividend, divisor, Integer<T>(1), dividend).first;

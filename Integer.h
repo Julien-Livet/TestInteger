@@ -21,6 +21,10 @@
 #include <format>
 #endif
 
+#ifdef USING_GMP
+#include <gmpxx.h>
+#endif
+
 using longest_type = unsigned long long;
 
 template <typename T, typename Enable = void>
@@ -83,6 +87,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 bits_.emplace_back(T{0});
         }
 
+#ifdef USING_GMP
+        constexpr explicit Integer(mpz_class const& n) : Integer(n.get_str())
+        {
+        }
+#endif
+
         constexpr explicit Integer(char const* n, size_t base = 10) : Integer(std::string{n}, base)
         {
         }
@@ -116,9 +126,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                 if (base == 2)
                 {
-                    if (*it == 'b')
+                    if (*it == 'b' || *it == 'B')
                         ++it;
-                    else if (n.substr(0, 2) == "0b")
+                    else if (n.substr(0, 2) == "0b" || n.substr(0, 2) == "0B")
                         it += 2;
 
                     while (it != n.end())
@@ -141,9 +151,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
                 else if (base == 8)
                 {
-                    if (*it == 'o')
+                    if (*it == 'o' || *it == 'O')
                         ++it;
-                    else if (n.substr(0, 2) == "0o")
+                    else if (n.substr(0, 2) == "0o" || n.substr(0, 2) == "0O")
                         it += 2;
 
                     auto otherIt{n.rbegin()};
@@ -199,9 +209,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
                 else if (base == 16)
                 {
-                    if (*it == 'x')
+                    if (*it == 'x' || *it == 'X')
                         ++it;
-                    else if (n.substr(0, 2) == "0x")
+                    else if (n.substr(0, 2) == "0x" || n.substr(0, 2) == "0X")
                         it += 2;
 
                     auto otherIt{n.rbegin()};
@@ -334,13 +344,13 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                             size_t const m{n / 2};
                             Integer x0, x1, y0, y1;
                             x0.bits_ = std::vector<T>(1, T{0});
-                            x0.bits_.back() = (~T{0} >> (sizeof(T) * 8 - m)) & bits_.back();
+                            x0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & bits_.back();
                             x1.bits_ = std::vector<T>(1, T{0});
-                            x1.bits_.back() = (((~T{0} >> (sizeof(T) * 8 - m)) << m) & bits_.back()) >> m;
+                            x1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & bits_.back()) >> m;
                             y0.bits_ = std::vector<T>(1, T{0});
-                            y0.bits_.back() = (~T{0} >> (sizeof(T) * 8 - m)) & other.bits_.back();
+                            y0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & other.bits_.back();
                             y1.bits_ = std::vector<T>(1, T{0});
-                            y1.bits_.back() = (((~T{0} >> (sizeof(T) * 8 - m)) << m) & other.bits_.back()) >> m;
+                            y1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & other.bits_.back()) >> m;
 
                             auto const z0(x0 * y0);
                             auto z1(x1 * y0 + x0 * y1);
@@ -561,6 +571,14 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
         constexpr Integer& operator%=(Integer const& other)
         {
+            std::cout << "*this ";
+            for (auto const& b : bits_)
+                std::cout << b << " ";
+            std::cout << std::endl;
+            std::cout << "other ";
+            for (auto const& b : other.bits_)
+                std::cout << b << " ";
+            std::cout << std::endl;
             if (!other || other.isNan() || other.isInfinity())
                 setNan();
             else
@@ -577,36 +595,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         isPositive_ = isPositive;
                     }
                     else
-                    {
-                        auto const qr{computeQr(*this, other)};
-                        *this = qr.second;
-
-                        std::cout << "q ";
-                        for (auto const& b : qr.first.bits_)
-                            std::cout << b << " ";
-                        std::cout << std::endl;
-                        std::cout << "r ";
-                        for (auto const& b : qr.second.bits_)
-                            std::cout << b << " ";
-                        std::cout << std::endl;
-                        //*this = computeQr(*this, other).second;
-                    }
+                        *this = computeQr(*this, other).second;
                 }
                 else
-                {
-                    auto const qr{computeQr(*this, other)};
-                    *this = qr.second;
-
-                    std::cout << "q ";
-                    for (auto const& b : qr.first.bits_)
-                        std::cout << b << " ";
-                    std::cout << std::endl;
-                    std::cout << "r ";
-                    for (auto const& b : qr.second.bits_)
-                        std::cout << b << " ";
-                    std::cout << std::endl;
-                    //*this = computeQr(*this, other).second;
-                }
+                    *this = computeQr(*this, other).second;
             }
 
             assert(abs() < other.abs());
@@ -622,7 +614,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 return *this;
 
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
-            auto const n{other / s};
+            auto const n(other / s);
 
             std::vector<T> const v(n.template cast<longest_type>(), T{0});
 
@@ -638,19 +630,18 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             auto const shift{other.template cast<longest_type>()};
 
-            for (auto it{bits_.begin() + 1}; it != bits_.end(); ++it)
+            if (shift)
             {
-                if ((*it >> (sizeof(T) * 8 - shift)))
-                    *(it - 1) |= (*it >> (sizeof(T) * 8 - shift));
+                for (auto it{bits_.begin() + 1}; it != bits_.end(); ++it)
+                {
+                    if ((*it >> (sizeof(T) * 8 - shift)))
+                        *(it - 1) |= (*it >> (sizeof(T) * 8 - shift));
 
-                *it <<= shift;
+                    *it <<= shift;
+                }
             }
 
-            if (!bits_.front())
-            {
-                std::copy(bits_.begin() + 1, bits_.end(), bits_.begin());
-                bits_.pop_back();
-            }
+            adjust();
 
             return *this;
         }
@@ -663,7 +654,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 return *this;
 
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
-            auto const n{other / s};
+            auto const n(other / s);
 
             bits_.resize(bits_.size() - n.template cast<longest_type>());
 
@@ -671,16 +662,21 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             auto const shift{other.template cast<longest_type>()};
 
-            for (auto it{bits_.rbegin()}; it != bits_.rend(); ++it)
+            if (shift)
             {
-                *it >>= shift;
+                for (auto it{bits_.rbegin()}; it != bits_.rend(); ++it)
+                {
+                    *it >>= shift;
 
-                if (it != bits_.rend() - 1 && (*(it + 1) & ((1 << shift) - 1)))
-                    *it |= (*(it +  1) & ((1 << shift) - 1)) << (sizeof(T) * 8 - shift);
+                    if (it != bits_.rend() - 1 && (*(it + 1) & ((1 << shift) - 1)))
+                        *it |= (*(it +  1) & ((1 << shift) - 1)) << (sizeof(T) * 8 - shift);
+                }
             }
 
             if (bits_.empty())
                 bits_.emplace_back(T{0});
+
+            adjust();
 
             return *this;
         }
@@ -1648,6 +1644,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             bits_ = std::vector<T>{it, bits_.end()};
         }
 
+#ifdef USING_GMP
+        constexpr mpz_class toMpz_class() const
+        {
+            return mpz_class{toString(2).substr(2), 2};
+        }
+#endif
     private:
         bool isPositive_{true};
         std::vector<T> bits_;
@@ -2069,15 +2071,6 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
         return qr;
     }
 
-    std::cout << "dividend " << std::endl;
-    for (auto const& b : dividend.bits())
-        std::cout << b << " ";
-    std::cout << std::endl;
-    std::cout << "divisor " << std::endl;
-    for (auto const& b : divisor.bits())
-        std::cout << b << " ";
-    std::cout << std::endl;
-
     Integer<T> start(1);
     auto end(dividend);
 
@@ -2085,10 +2078,7 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
     {
         auto mid(end + start);
         mid >>= 1;
-        std::cout << "mid ";
-        for (auto const& b : mid.bits())
-            std::cout << b << " ";
-        std::cout << std::endl;
+
         auto n(dividend - divisor * mid);
 
         if (n > divisor)

@@ -2081,37 +2081,34 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
         std::cout << b << " ";
     std::cout << std::endl;
 
-    findQr = [&findQr] (Integer<T> const& dividend, Integer<T> const& divisor,
-                       Integer<T> start, Integer<T> end) -> std::pair<Integer<T>, Integer<T> >
+    Integer<T> start(1);
+    auto end(dividend);
+
+    while (start <= end)
     {
-        while (start <= end)
+        auto mid(end - start);
+        mid >>= 1;
+        mid += start;
+
+        auto n(dividend - divisor * mid);
+
+        if (n > divisor)
+            start = mid + 1;
+        else if (n < 0)
+            end = mid - 1;
+        else
         {
-            auto mid(end - start);
-            mid >>= 1;
-            mid += start;
-
-            auto n(dividend - divisor * mid);
-
-            if (n > divisor)
-                start = mid + 1;
-            else if (n < 0)
-                end = mid - 1;
-            else
+            if (n == divisor)
             {
-                if (n == divisor)
-                {
-                    ++mid;
-                    n = 0;
-                }
-
-                return {mid, n};
+                ++mid;
+                n = 0;
             }
+
+            return {mid, n};
         }
+    }
 
-        return {Integer<T>(0), dividend};
-    };
-
-    return findQr(dividend, divisor, Integer<T>(1), dividend);
+    return {Integer<T>(0), dividend};
 }
 
 template <typename T, typename S>
@@ -2136,46 +2133,40 @@ constexpr Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
     else if (divisor.abs() > dividend.abs())
         return Integer<T>{0};
     else if (dividend < 0 && divisor < 0)
-        return computeQuotient(-dividend, -divisor).first;
+        return computeQuotient(-dividend, -divisor);
     else if (dividend > 0 && divisor < 0)
-        return -computeQuotient(dividend, -divisor).first;
+        return -computeQuotient(dividend, -divisor);
     else if (dividend < 0 && divisor > 0)
-        return -computeQuotient(-dividend, divisor).first;
+        return -computeQuotient(-dividend, divisor);
 
-    std::function<std::pair<Integer<T>, Integer<T> >(Integer<T> const&, Integer<T> const&,
-                                                     Integer<T>, Integer<T>)> findQr;
+    Integer<T> start(1);
+    auto end(dividend);
 
-    findQr = [&findQr] (Integer<T> const& dividend, Integer<T> const& divisor,
-                       Integer<T> start, Integer<T> end) -> std::pair<Integer<T>, Integer<T> >
+    while (start <= end)
     {
-        while (start <= end)
+        auto mid(end - start);
+        mid >>= 1;
+        mid += start;
+
+        auto n(dividend - divisor * mid);
+
+        if (n > divisor)
+            start = mid + 1;
+        else if (n < 0)
+            end = mid - 1;
+        else
         {
-            auto mid(end - start);
-            mid >>= 1;
-            mid += start;
-
-            auto n(dividend - divisor * mid);
-
-            if (n > divisor)
-                start = mid + 1;
-            else if (n < 0)
-                end = mid - 1;
-            else
+            if (n == divisor)
             {
-                if (n == divisor)
-                {
-                    ++mid;
-                    n = 0;
-                }
-
-                return {mid, n};
+                ++mid;
+                n = 0;
             }
+
+            return mid;
         }
+    }
 
-        return {Integer<T>(0), dividend};
-    };
-
-    return findQr(dividend, divisor, Integer<T>(1), dividend).first;
+    return Integer<T>(0);
 }
 
 template <typename T, typename S>

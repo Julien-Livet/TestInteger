@@ -17,6 +17,12 @@
 #include <sstream>
 #include <vector>
 
+#if __cplusplus >= 201703L
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
+
 #if __cplusplus >= 202002L
 #include <format>
 #endif
@@ -33,1135 +39,1064 @@ class Integer;
 template <typename T>
 class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 {
-    public:
-        constexpr Integer() : bits_{T{0}}
+public:
+    CONSTEXPR Integer() : bits_{T{0}}
+    {
+    }
+
+    template <typename S>
+    CONSTEXPR explicit Integer(S n) : isPositive_{n >= 0}
+    {
+        bits_.reserve(std::max(longest_type{1}, longest_type{sizeof(S) / sizeof(T)}));
+
+        if (n < 0)
+            n = -n;
+
+        if (sizeof(T) == sizeof(S))
+            bits_.emplace_back(n);
+        else
         {
-        }
+            auto const shift{longest_type{1} << std::min(sizeof(T), sizeof(S)) * 8};
 
-        template <typename S>
-        constexpr explicit Integer(S n) : isPositive_{n >= 0}
-        {
-            bits_.reserve(std::max(longest_type{1}, longest_type{sizeof(S) / sizeof(T)}));
-
-            if (n < 0)
-                n = -n;
-
-            if (sizeof(T) == sizeof(S))
-                bits_.emplace_back(n);
-            else
+            for (size_t i{0}; i < bits_.capacity(); ++i)
             {
-                auto const shift{longest_type{1} << std::min(sizeof(T), sizeof(S)) * 8};
-
-                for (size_t i{0}; i < bits_.capacity(); ++i)
-                {
-                    bits_.emplace_back(n % shift);
-                    n /= shift;
-                }
-
-                std::reverse(bits_.begin(), bits_.end());
+                bits_.emplace_back(n % shift);
+                n /= shift;
             }
-        }
 
-        constexpr explicit Integer(std::vector<T> const& bits, bool isPositive = true) : isPositive_{isPositive}, bits_{bits}
-        {
-            if (bits_.empty())
-                bits_.emplace_back(T{0});
+            std::reverse(bits_.begin(), bits_.end());
         }
+    }
 
-        template <size_t N>
-        constexpr explicit Integer(std::bitset<N> const& bits, bool isPositive = true) : isPositive_{isPositive}
-        {
-            setBits(0, bits);
-        }
+    CONSTEXPR explicit Integer(std::vector<T> const& bits, bool isPositive = true) : isPositive_{isPositive}, bits_{bits}
+    {
+        if (bits_.empty())
+            bits_.emplace_back(T{0});
+    }
 
-        constexpr explicit Integer(std::initializer_list<T> const& bits, bool isPositive = true) : isPositive_{isPositive}, bits_{bits}
-        {
-            if (bits_.empty())
-                bits_.emplace_back(T{0});
-        }
+    template <size_t N>
+    CONSTEXPR explicit Integer(std::bitset<N> const& bits, bool isPositive = true) : isPositive_{isPositive}
+    {
+        setBits(0, bits);
+    }
 
-        template <class InputIt>
-        constexpr explicit Integer(InputIt begin, InputIt end, bool isPositive = true) : isPositive_{isPositive}, bits_{begin, end}
-        {
-            if (bits_.empty())
-                bits_.emplace_back(T{0});
-        }
+    CONSTEXPR explicit Integer(std::initializer_list<T> const& bits, bool isPositive = true) : isPositive_{isPositive}, bits_{bits}
+    {
+        if (bits_.empty())
+            bits_.emplace_back(T{0});
+    }
+
+    template <class InputIt>
+    CONSTEXPR explicit Integer(InputIt begin, InputIt end, bool isPositive = true) : isPositive_{isPositive}, bits_{begin, end}
+    {
+        if (bits_.empty())
+            bits_.emplace_back(T{0});
+    }
 
 #ifdef USING_GMP
-        constexpr explicit Integer(mpz_class const& n) : Integer(n.get_str())
-        {
-        }
+    CONSTEXPR explicit Integer(mpz_class const& n) : Integer(n.get_str(2), 2)
+    {
+    }
 #endif
 
-        constexpr explicit Integer(char const* n, size_t base = 10) : Integer(std::string{n}, base)
+    CONSTEXPR explicit Integer(char const* n, size_t base = 10) : Integer(std::string{n}, base)
+    {
+    }
+
+    CONSTEXPR explicit Integer(std::string n, size_t base = 10)
+    {
+        assert(2 <= base && base <= 62);
+
+        n.erase(std::remove_if(n.begin(), n.end(), isspace), n.end());
+        n.erase(std::remove(n.begin(), n.end(), '\''), n.end());
+
+        auto it{n.begin()};
+
+        if (*it == '-')
         {
+            isPositive_ = false;
+            ++it;
         }
 
-        constexpr explicit Integer(std::string n, size_t base = 10)
+        std::string str{it, n.end()};
+        std::transform(str.begin(), str.end(), str.begin(),
+                       [] (unsigned char c) { return std::tolower(c); });
+
+        if (str == "nan")
+            setNan();
+        else if (str == "inf")
+            setInfinity();
+        else
         {
-            assert(2 <= base && base <= 62);
+            auto const isPositive{isPositive_};
 
-            n.erase(std::remove_if(n.begin(), n.end(), isspace), n.end());
-            n.erase(std::remove(n.begin(), n.end(), '\''), n.end());
-
-            auto it{n.begin()};
-
-            if (*it == '-')
+            if (base == 2)
             {
-                isPositive_ = false;
-                ++it;
+                if (*it == 'b' || *it == 'B')
+                    ++it;
+                else if (n.substr(0, 2) == "0b" || n.substr(0, 2) == "0B")
+                    it += 2;
+
+                while (it != n.end())
+                {
+                    if (*it == '1')
+                    {
+                        *this |= 1;
+
+                        if (it != n.end() - 1)
+                            *this <<= 1;
+                    }
+                    else if (*it == '0')
+                    {
+                        if (it != n.end() - 1)
+                            *this <<= 1;
+                    }
+
+                    ++it;
+                }
+            }
+            else if (base == 8)
+            {
+                if (*it == 'o' || *it == 'O')
+                    ++it;
+                else if (n.substr(0, 2) == "0o" || n.substr(0, 2) == "0O")
+                    it += 2;
+
+                auto otherIt{n.rbegin()};
+                Integer p(1);
+
+                while (otherIt.base() != it)
+                {
+                    if ('0' <= *otherIt && *otherIt <= '7')
+                    {
+                        *this += (*otherIt - '0') * p;
+                        p *= base;
+                    }
+
+                    ++otherIt;
+                }
+            }
+            else if (base <= 10)
+            {
+                auto otherIt{n.rbegin()};
+                Integer p(1);
+
+                while (otherIt.base() != it)
+                {
+                    if ('0' <= *otherIt && *otherIt <= static_cast<char>('0' + base))
+                    {
+                        *this += (*otherIt - '0') * p;
+                        p *= base;
+                    }
+
+                    ++otherIt;
+                }
+            }
+            else if (base < 16)
+            {
+                auto otherIt{n.rbegin()};
+                Integer p(1);
+
+                while (otherIt.base() != it)
+                {
+                    if ('0' <= *otherIt && *otherIt <= '9')
+                    {
+                        *this += (*otherIt - '0') * p;
+                        p *= base;
+                    }
+                    else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= static_cast<char>('a' + base - 10))
+                    {
+                        *this += (*otherIt - 'a' + 10) * p;
+                        p *= base;
+                    }
+
+                    ++otherIt;
+                }
+            }
+            else if (base == 16)
+            {
+                if (*it == 'x' || *it == 'X')
+                    ++it;
+                else if (n.substr(0, 2) == "0x" || n.substr(0, 2) == "0X")
+                    it += 2;
+
+                auto otherIt{n.rbegin()};
+                Integer p(1);
+
+                while (otherIt.base() != it)
+                {
+                    if ('0' <= *otherIt && *otherIt <= '9')
+                    {
+                        *this += (*otherIt - '0') * p;
+                        p *= base;
+                    }
+                    else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= 'f')
+                    {
+                        *this += (*otherIt - 'a' + 10) * p;
+                        p *= base;
+                    }
+
+                    ++otherIt;
+                }
+            }
+            else// if (base <= 62)
+            {
+                auto otherIt{n.rbegin()};
+                Integer p(1);
+
+                while (otherIt.base() != it)
+                {
+                    if ('0' <= *otherIt && *otherIt <= '9')
+                    {
+                        *this += (*otherIt - '0') * p;
+                        p *= base;
+                    }
+                    else if ('a' <= *otherIt && *otherIt <= 'z')
+                    {
+                        *this += (*otherIt - 'a' + 10) * p;
+                        p *= base;
+                    }
+                    else if ('A' <= *otherIt && *otherIt <= 'Z')
+                    {
+                        *this += (*otherIt - 'A' + 36) * p;
+                        p *= base;
+                    }
+
+                    ++otherIt;
+                }
             }
 
-            std::string str{it, n.end()};
-            std::transform(str.begin(), str.end(), str.begin(),
-                           [] (unsigned char c) { return std::tolower(c); });
+            isPositive_ = isPositive;
+        }
+    }
 
-            if (str == "nan")
-                setNan();
-            else if (str == "inf")
-                setInfinity();
-            else
-            {
-                auto const isPositive{isPositive_};
+    CONSTEXPR bool isPositive() const noexcept
+    {
+        return isPositive_;
+    }
 
-                if (base == 2)
-                {
-                    if (*it == 'b' || *it == 'B')
-                        ++it;
-                    else if (n.substr(0, 2) == "0b" || n.substr(0, 2) == "0B")
-                        it += 2;
+    CONSTEXPR bool isNegative() const noexcept
+    {
+        return !isPositive_;
+    }
 
-                    while (it != n.end())
-                    {
-                        if (*it == '1')
-                        {
-                            *this |= 1;
+    CONSTEXPR auto const& bits() const noexcept
+    {
+        return bits_;
+    }
 
-                            if (it != n.end() - 1)
-                                *this <<= 1;
-                        }
-                        else if (*it == '0')
-                        {
-                            if (it != n.end() - 1)
-                                *this <<= 1;
-                        }
+    CONSTEXPR void invert() noexcept
+    {
+        for (size_t i{0}; i < bits_.size(); ++i)
+            bits_[i] = ~bits_[i];
+    }
 
-                        ++it;
-                    }
-                }
-                else if (base == 8)
-                {
-                    if (*it == 'o' || *it == 'O')
-                        ++it;
-                    else if (n.substr(0, 2) == "0o" || n.substr(0, 2) == "0O")
-                        it += 2;
+    CONSTEXPR Integer& operator*=(Integer other)
+    {
+        auto const num(*this);
 
-                    auto otherIt{n.rbegin()};
-                    Integer p(1);
+        if (other.isNegative())
+        {
+            *this = -*this;
 
-                    while (otherIt.base() != it)
-                    {
-                        if ('0' <= *otherIt && *otherIt <= '7')
-                        {
-                            *this += (*otherIt - '0') * p;
-                            p *= base;
-                        }
-
-                        ++otherIt;
-                    }
-                }
-                else if (base <= 10)
-                {
-                    auto otherIt{n.rbegin()};
-                    Integer p(1);
-
-                    while (otherIt.base() != it)
-                    {
-                        if ('0' <= *otherIt && *otherIt <= static_cast<char>('0' + base))
-                        {
-                            *this += (*otherIt - '0') * p;
-                            p *= base;
-                        }
-
-                        ++otherIt;
-                    }
-                }
-                else if (base < 16)
-                {
-                    auto otherIt{n.rbegin()};
-                    Integer p(1);
-
-                    while (otherIt.base() != it)
-                    {
-                        if ('0' <= *otherIt && *otherIt <= '9')
-                        {
-                            *this += (*otherIt - '0') * p;
-                            p *= base;
-                        }
-                        else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= static_cast<char>('a' + base - 10))
-                        {
-                            *this += (*otherIt - 'a' + 10) * p;
-                            p *= base;
-                        }
-
-                        ++otherIt;
-                    }
-                }
-                else if (base == 16)
-                {
-                    if (*it == 'x' || *it == 'X')
-                        ++it;
-                    else if (n.substr(0, 2) == "0x" || n.substr(0, 2) == "0X")
-                        it += 2;
-
-                    auto otherIt{n.rbegin()};
-                    Integer p(1);
-
-                    while (otherIt.base() != it)
-                    {
-                        if ('0' <= *otherIt && *otherIt <= '9')
-                        {
-                            *this += (*otherIt - '0') * p;
-                            p *= base;
-                        }
-                        else if ('a' <= std::tolower(*otherIt) && std::tolower(*otherIt) <= 'f')
-                        {
-                            *this += (*otherIt - 'a' + 10) * p;
-                            p *= base;
-                        }
-
-                        ++otherIt;
-                    }
-                }
-                else// if (base <= 62)
-                {
-                    auto otherIt{n.rbegin()};
-                    Integer p(1);
-
-                    while (otherIt.base() != it)
-                    {
-                        if ('0' <= *otherIt && *otherIt <= '9')
-                        {
-                            *this += (*otherIt - '0') * p;
-                            p *= base;
-                        }
-                        else if ('a' <= *otherIt && *otherIt <= 'z')
-                        {
-                            *this += (*otherIt - 'a' + 10) * p;
-                            p *= base;
-                        }
-                        else if ('A' <= *otherIt && *otherIt <= 'Z')
-                        {
-                            *this += (*otherIt - 'A' + 36) * p;
-                            p *= base;
-                        }
-
-                        ++otherIt;
-                    }
-                }
-
-                isPositive_ = isPositive;
-            }
+            return *this *= -other;
         }
 
-        constexpr bool isPositive() const noexcept
+        if (isNan() || other.isNan())
+            setNan();
+        else if (!*this || !other)
         {
-            return isPositive_;
+            *this = 0;
         }
-
-        constexpr bool isNegative() const noexcept
+        else if (isInfinity() || other.isInfinity())
         {
-            return !isPositive_;
-        }
+            setInfinity();
 
-        constexpr auto const& bits() const noexcept
-        {
-            return bits_;
-        }
-
-        constexpr void invert() noexcept
-        {
-            for (size_t i{0}; i < bits_.size(); ++i)
-                bits_[i] = ~bits_[i];
-        }
-
-        constexpr Integer& operator*=(Integer const& other)
-        {
             if (other.isNegative())
+                isPositive_ = !isPositive_;
+        }
+        else if (!*this || !other)
+            *this = 0;
+        else
+        {
+            if (isPositive_ && other.isPositive_)
             {
-                *this = -*this;
-
-                return *this *= -other;
-            }
-
-            if (isNan() || other.isNan())
-                setNan();
-            else if (!*this || !other)
-            {
-                *this = 0;
-            }
-            else if (isInfinity() || other.isInfinity())
-            {
-                setInfinity();
-
-                if (other.isNegative())
-                    isPositive_ = !isPositive_;
-            }
-            else if (!*this || !other)
-                *this = 0;
-            else
-            {
-                if (isPositive_ && other.isPositive_)
+                if (this->template fits<longest_type>() && other.template fits<longest_type>())
                 {
-                    if (this->template fits<longest_type>() && other.template fits<longest_type>())
-                    {
-                        auto const a(this->template cast<longest_type>());
-                        auto const b(other.template cast<longest_type>());
-                        auto const ab{a * b};
+                    auto const a{this->template cast<longest_type>()};
+                    auto const b{other.template cast<longest_type>()};
+                    auto const ab{a * b};
 
-                        if (ab / b == a)
-                            *this = ab;
-                        else
-                        {
-                            auto number{[] (T n) -> size_t
-                                        {
-                                            size_t number{0};
-
-                                            while (n)
-                                            {
-                                                ++number;
-                                                n >>= 1;
-                                            }
-
-                                            return number;
-                                        }
-                            };
-
-                            //Karatsuba algorithm
-                            size_t n{std::max(number(bits_.back()), number(other.bits_.back()))};
-                            if (n % 2)
-                                ++n;
-                            size_t const m{n / 2};
-                            Integer x0, x1, y0, y1;
-                            x0.bits_ = std::vector<T>(1, T{0});
-                            x0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & bits_.back();
-                            x1.bits_ = std::vector<T>(1, T{0});
-                            x1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & bits_.back()) >> m;
-                            y0.bits_ = std::vector<T>(1, T{0});
-                            y0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & other.bits_.back();
-                            y1.bits_ = std::vector<T>(1, T{0});
-                            y1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & other.bits_.back()) >> m;
-
-                            auto const z0(x0 * y0);
-                            auto z1(x1 * y0 + x0 * y1);
-                            z1 <<= m;
-                            auto z2(x1 * y1);
-                            z2 <<= 2 * m;
-
-                            //xy = z2 * 2^(2 * m) + z1 * 2^m + z0
-                            *this = z0 + z1 + z2;
-                        }
-                    }
+                    if (ab / b == a)
+                        *this = ab;
                     else
                     {
+                        auto number{[] (T n) -> size_t
+                                    {
+                                        size_t number{0};
+
+                                        while (n)
+                                        {
+                                            ++number;
+                                            n >>= 1;
+                                        }
+
+                                        return number;
+                                    }
+                        };
+
                         //Karatsuba algorithm
-                        //x = x1 * 2^m + x0
-                        //y = y1 * 2^m + y0
-                        size_t n1{number() / (sizeof(T) * 8)};
-                        if (number() % (sizeof(T) * 8))
-                            ++n1;
-                        if (n1 % 2)
-                            ++n1;
-                        size_t n2{other.number() / (sizeof(T) * 8)};
-                        if (other.number() % (sizeof(T) * 8))
-                            ++n2;
-                        if (n2 % 2)
-                            ++n2;
-                        size_t const n{std::max(n1, n2)};
+                        size_t n{std::max(number(bits_.back()), number(other.bits_.back()))};
+                        if (n % 2)
+                            ++n;
                         size_t const m{n / 2};
                         Integer x0, x1, y0, y1;
-                        x0.bits_ = std::vector<T>(m, T{0});
-                        std::copy(bits_.rbegin(),
-                                  bits_.rbegin() + std::min(n1 / 2, m),
-                                  x0.bits_.rbegin());
-                        x1.bits_ = std::vector<T>(m, T{0});
-                        std::copy(bits_.rbegin() + std::min(n1 / 2, m),
-                                  bits_.rbegin() + std::min(bits_.size(), n1),
-                                  x1.bits_.rbegin());
-                        y0.bits_ = std::vector<T>(m, T{0});
-                        std::copy(other.bits_.rbegin(),
-                                  other.bits_.rbegin() + std::min(n2 / 2, m),
-                                  y0.bits_.rbegin());
-                        y1.bits_ = std::vector<T>(m, T{0});
-                        std::copy(other.bits_.rbegin() + std::min(n2 / 2, m),
-                                  other.bits_.rbegin() + std::min(other.bits_.size(), n2),
-                                  y1.bits_.rbegin());
+                        x0.bits_ = std::vector<T>(1, T{0});
+                        x0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & bits_.back();
+                        x1.bits_ = std::vector<T>(1, T{0});
+                        x1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & bits_.back()) >> m;
+                        y0.bits_ = std::vector<T>(1, T{0});
+                        y0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & other.bits_.back();
+                        y1.bits_ = std::vector<T>(1, T{0});
+                        y1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & other.bits_.back()) >> m;
+/**
+                        if (!(*this == ((x1 << m) | x0)))
+                        {
+                        std::cout << "*this ";
+                        for (auto const& b : bits_)
+                            std::cout << (unsigned long long)b << "ull, ";
+                        std::cout << std::endl;
+                        std::cout << "x1 ";
+                        for (auto const& b : x1.bits_)
+                            std::cout << (unsigned long long)b << "ull, ";
+                        std::cout << std::endl;
+                        std::cout << "x0 ";
+                        for (auto const& b : x0.bits_)
+                            std::cout << (unsigned long long)b << "ull, ";
+                        std::cout << std::endl;}**/
+                        assert(*this == ((x1 << m) | x0));
+                        assert(other == ((y1 << m) | y0));
 
                         auto const z0(x0 * y0);
                         auto const z1(x1 * y0 + x0 * y1);
                         auto const z2(x1 * y1);
 
+#ifdef USING_GMP
+                        assert(z0 == mpz_class{x0.toMpz_class() * y0.toMpz_class()});
+                        assert(z1 == mpz_class{x1.toMpz_class() * y0.toMpz_class() + x0.toMpz_class() * y1.toMpz_class()});
+                        assert(z2 == mpz_class{x1.toMpz_class() * y1.toMpz_class()});
+
+                        mpz_class _2_2m{2};
+                        mpz_pow_ui(_2_2m.get_mpz_t(), _2_2m.get_mpz_t(), 2 * m);
+                        mpz_class _2_m{2};
+                        mpz_pow_ui(_2_m.get_mpz_t(), _2_m.get_mpz_t(), m);
+                        mpz_class const n1_{num.toMpz_class() * other.toMpz_class()};
+                        mpz_class const n2_{z2.toMpz_class() * _2_2m
+                                            + z1.toMpz_class() * _2_m
+                                            + z0.toMpz_class()};
+                        assert(n1_ == n2_);
+#endif
+
                         //xy = z2 * 2^(2 * m) + z1 * 2^m + z0
-                        *this = z0;
-                        Integer w1, w2;
-                        w1.bits_ = std::vector<T>(z1.bits_.size() + m, T{0});
-                        std::copy(z1.bits_.rbegin(), z1.bits_.rend(), w1.bits_.rbegin() + m);
-                        *this += w1;
-                        w2.bits_ = std::vector<T>(z2.bits_.size() + 2 * m, T{0});
-                        std::copy(z2.bits_.rbegin(), z2.bits_.rend(), w2.bits_.rbegin() + 2 * m);
-                        *this += w2;
-
-                        adjust();
+                        *this = z0 + (z1 << m) + (z2 << 2 * m);
                     }
                 }
                 else
                 {
-                    *this *= -other;
-                    *this = -*this;
-                }
-            }
+                    //Karatsuba algorithm
+                    //x = x1 * 2^m + x0
+                    //y = y1 * 2^m + y0
+                    size_t n1{number() / (sizeof(T) * 8)};
+                    if (number() % (sizeof(T) * 8))
+                        ++n1;
+                    if (n1 % 2)
+                        ++n1;
+                    size_t n2{other.number() / (sizeof(T) * 8)};
+                    if (other.number() % (sizeof(T) * 8))
+                        ++n2;
+                    if (n2 % 2)
+                        ++n2;
+                    size_t const n{std::max(n1, n2)};
+                    size_t const m{n / 2};
+                    Integer x0, x1, y0, y1;
+                    x0.bits_ = std::vector<T>(m, T{0});
+                    std::copy(bits_.rbegin(),
+                              bits_.rbegin() + std::min(bits_.size(), m),
+                              x0.bits_.rbegin());
+                    x1.bits_ = std::vector<T>(m, T{0});
+                    std::copy(bits_.rbegin() + m,
+                              bits_.rbegin() + std::min(bits_.size(), 2 * m),
+                              x1.bits_.rbegin());
+                    y0.bits_ = std::vector<T>(m, T{0});
+                    std::copy(other.bits_.rbegin(),
+                              other.bits_.rbegin() + std::min(other.bits_.size(), m),
+                              y0.bits_.rbegin());
+                    y1.bits_ = std::vector<T>(m, T{0});
+                    std::copy(other.bits_.rbegin() + m,
+                              other.bits_.rbegin() + std::min(other.bits_.size(), 2 * m),
+                              y1.bits_.rbegin());
 
-            return *this;
-        }
+                    assert(*this == ((x1 << (m * sizeof(T) * 8)) | x0));
+                    assert(other == ((y1 << (m * sizeof(T) * 8)) | y0));
 
-        constexpr Integer& operator+=(Integer const& other)
-        {
-            if (isNan() || other.isNan())
-                setNan();
-            else if (isInfinity() || other.isInfinity())
-            {
+                    auto const z0(x0 * y0);
+                    auto const z1(x1 * y0 + x0 * y1);
+                    auto const z2(x1 * y1);
 
-                if ((isPositive() && other.isNegative())
-                    || (isNegative() && other.isPositive()))
-                    setNan();
-                else
-                {
-                    if (other.isInfinity())
-                        isPositive_ = other.isPositive_;
+#ifdef USING_GMP
+                    assert(z0 == mpz_class{x0.toMpz_class() * y0.toMpz_class()});
+                    assert(z1 == mpz_class{x1.toMpz_class() * y0.toMpz_class() + x0.toMpz_class() * y1.toMpz_class()});
+                    assert(z2 == mpz_class{x1.toMpz_class() * y1.toMpz_class()});
+#endif
 
-                    setInfinity();
+                    //o = m * 8 * sizeof(T)
+                    //xy = z2 * 2^(2 * o) + z1 * 2^o + z0
+
+#ifdef USING_GMP
+                    size_t const o{m * 8 * sizeof(T)};
+                    mpz_class _2_2o{2};
+                    mpz_pow_ui(_2_2o.get_mpz_t(), _2_2o.get_mpz_t(), 2 * o);
+                    mpz_class _2_o{2};
+                    mpz_pow_ui(_2_o.get_mpz_t(), _2_o.get_mpz_t(), o);
+                    mpz_class const n1_{num.toMpz_class() * other.toMpz_class()};
+                    mpz_class const n2_{z2.toMpz_class() * _2_2o
+                                        + z1.toMpz_class() * _2_o
+                                        + z0.toMpz_class()};
+                    assert(n1_ == n2_);
+#endif
+
+                    *this = z0;
+                    Integer w1, w2;
+                    w1.bits_ = std::vector<T>(z1.bits_.size() + m, T{0});
+                    std::copy(z1.bits_.rbegin(), z1.bits_.rend(), w1.bits_.rbegin() + m);
+                    *this += w1;
+                    w2.bits_ = std::vector<T>(z2.bits_.size() + 2 * m, T{0});
+                    std::copy(z2.bits_.rbegin(), z2.bits_.rend(), w2.bits_.rbegin() + 2 * m);
+                    *this += w2;
+
+                    adjust();
                 }
             }
             else
             {
-                if ((isPositive() && other.isPositive())
-                    || (isNegative() && other.isNegative()))
-                {
-                    T carry{0};
-                    auto const& a{bits_};
-                    auto const& b{other.bits_};
-                    size_t const n{std::max(a.size(), b.size())};
-                    std::vector<T> result;
-
-                    for (size_t i{0}; i < n; ++i)
-                    {
-                        auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
-                        auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
-                        auto const sum{static_cast<T>(bit_a + bit_b + carry)};
-
-                        carry = (sum < bit_a || sum < bit_b);
-
-                        result.emplace_back(sum);
-                    }
-
-                    if (carry)
-                        result.emplace_back(T{1});
-
-                    std::reverse(result.begin(), result.end());
-
-                    bits_ = result;
-                }
-                else
-                {
-                    auto otherBits{other.bits_};
-
-                    if (isPositive())
-                    {
-                        if (*this < -other)
-                        {
-                            isPositive_ = false;
-                            otherBits = bits_;
-                            bits_ = other.bits_;
-                        }
-                    }
-                    else
-                    {
-                        if (*this > -other)
-                        {
-                            isPositive_ = true;
-                            otherBits = bits_;
-                            bits_ = other.bits_;
-                        }
-                    }
-
-                    T borrow{0};
-                    auto const& a{bits_};
-                    auto const& b{otherBits};
-                    size_t const n{std::max(a.size(), b.size())};
-                    std::vector<T> result;
-
-                    for (size_t i{0}; i < n; ++i)
-                    {
-                        auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
-                        auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
-                        auto const bit_result{static_cast<T>(bit_a - bit_b - borrow)};
-
-                        borrow = (bit_result  > bit_a);
-
-                        result.emplace_back(bit_result);
-                    }
-
-                    std::reverse(result.begin(), result.end());
-
-                    bits_ = result;
-                }
-            }
-
-            return *this;
-        }
-
-        constexpr Integer& operator-=(Integer const& other)
-        {
-            auto const n(*this);
-
-            *this += -other;
-
-            assert(n == *this + other);
-
-            return *this;
-        }
-
-        constexpr Integer& operator/=(Integer other)
-        {
-            if (other.isNegative())
-            {
+                *this *= -other;
                 *this = -*this;
-
-                return *this /= -other;
             }
+        }
 
-            auto const n(*this);
+#ifdef USING_GMP
+        assert(*this == mpz_class{num.toMpz_class() * other.toMpz_class()});
+#endif
 
-            if (!other || other.isNan())
+        return *this;
+    }
+
+    CONSTEXPR Integer& operator+=(Integer const& other)
+    {
+        if (isNan() || other.isNan())
+            setNan();
+        else if (isInfinity() || other.isInfinity())
+        {
+
+            if ((isPositive() && other.isNegative())
+                || (isNegative() && other.isPositive()))
                 setNan();
-            else if (other.isInfinity())
-                *this = 0;
             else
             {
-                if (abs() < other.abs())
-                    *this = 0;
-                else if (isPositive_ && other.isPositive_)
+                if (other.isInfinity())
+                    isPositive_ = other.isPositive_;
+
+                setInfinity();
+            }
+        }
+        else
+        {
+            if ((isPositive() && other.isPositive())
+                || (isNegative() && other.isNegative()))
+            {
+                T carry{0};
+                auto const& a{bits_};
+                auto const& b{other.bits_};
+                size_t const n{std::max(a.size(), b.size())};
+                std::vector<T> result;
+
+                for (size_t i{0}; i < n; ++i)
                 {
-                    if (this->template fits<longest_type>() && other.template fits<longest_type>())
-                        *this = this->template cast<longest_type>() / other.template cast<longest_type>();
-                    else
-                        *this = computeQuotient(*this, other);
+                    auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
+                    auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
+                    auto const sum{static_cast<T>(bit_a + bit_b + carry)};
+
+                    carry = (sum < bit_a || sum < bit_b);
+
+                    result.emplace_back(sum);
+                }
+
+                if (carry)
+                    result.emplace_back(T{1});
+
+                std::reverse(result.begin(), result.end());
+
+                bits_ = result;
+            }
+            else
+            {
+                auto otherBits{other.bits_};
+
+                if (isPositive())
+                {
+                    if (*this < -other)
+                    {
+                        isPositive_ = false;
+                        otherBits = bits_;
+                        bits_ = other.bits_;
+                    }
                 }
                 else
                 {
-                    *this /= -other;
-                    *this = -*this;
+                    if (*this > -other)
+                    {
+                        isPositive_ = true;
+                        otherBits = bits_;
+                        bits_ = other.bits_;
+                    }
                 }
+
+                T borrow{0};
+                auto const& a{bits_};
+                auto const& b{otherBits};
+                size_t const n{std::max(a.size(), b.size())};
+                std::vector<T> result;
+
+                for (size_t i{0}; i < n; ++i)
+                {
+                    auto const bit_a{(i < a.size()) ? a[a.size() - 1 - i] : T{0}};
+                    auto const bit_b{(i < b.size()) ? b[b.size() - 1 - i] : T{0}};
+                    auto const bit_result{static_cast<T>(bit_a - bit_b - borrow)};
+
+                    borrow = (bit_result  > bit_a);
+
+                    result.emplace_back(bit_result);
+                }
+
+                std::reverse(result.begin(), result.end());
+
+                bits_ = result;
             }
-
-            assert(abs() <= n.abs());
-
-            return *this;
         }
 
-        constexpr Integer& operator%=(Integer const& other)
+        return *this;
+    }
+
+    CONSTEXPR Integer& operator-=(Integer const& other)
+    {
+        auto const n(*this);
+
+        *this += -other;
+
+        assert(n == *this + other);
+
+        return *this;
+    }
+
+    CONSTEXPR Integer& operator/=(Integer const& other)
+    {
+        if (other.isNegative())
         {
-            std::cout << "*this ";
-            for (auto const& b : bits_)
-                std::cout << b << " ";
-            std::cout << std::endl;
-            std::cout << "other ";
-            for (auto const& b : other.bits_)
-                std::cout << b << " ";
-            std::cout << std::endl;
-            if (!other || other.isNan() || other.isInfinity())
-                setNan();
+            *this = -*this;
+
+            return *this /= -other;
+        }
+
+        auto const n(*this);
+
+        if (!other || other.isNan())
+            setNan();
+        else if (other.isInfinity())
+            *this = 0;
+        else
+        {
+            if (abs() < other.abs())
+                *this = 0;
+            else if (isPositive_ && other.isPositive_)
+            {
+                if (this->template fits<longest_type>() && other.template fits<longest_type>())
+                    *this = this->template cast<longest_type>() / other.template cast<longest_type>();
+                else
+                    *this = computeQuotient(*this, other);
+            }
             else
             {
-                if ((isPositive_ && other.isPositive_) ||
-                    (!isPositive_ && !other.isPositive_))
+                *this /= -other;
+                *this = -*this;
+            }
+        }
+
+        assert(abs() <= n.abs());
+
+        return *this;
+    }
+
+    CONSTEXPR Integer& operator%=(Integer const& other)
+    {
+        if (!other || other.isNan() || other.isInfinity())
+            setNan();
+        else
+        {
+            if ((isPositive_ && other.isPositive_) ||
+                (!isPositive_ && !other.isPositive_))
+            {
+                if (abs().template fits<longest_type>() && other.abs().template fits<longest_type>())
                 {
-                    if (abs().template fits<longest_type>() && other.abs().template fits<longest_type>())
-                    {
-                        auto const isPositive{isPositive_};
+                    auto const isPositive{isPositive_};
 
-                        *this = abs().template cast<longest_type>() % other.abs().template cast<longest_type>();
+                    *this = abs().template cast<longest_type>() % other.abs().template cast<longest_type>();
 
-                        isPositive_ = isPositive;
-                    }
-                    else
-                        *this = computeQr(*this, other).second;
+                    isPositive_ = isPositive;
                 }
                 else
                     *this = computeQr(*this, other).second;
             }
-
-            assert(abs() < other.abs());
-
-            return *this;
+            else
+                *this = computeQr(*this, other).second;
         }
 
-        constexpr Integer& operator<<=(Integer other)
+        assert(abs() < other.abs());
+
+        return *this;
+    }
+
+    CONSTEXPR Integer& operator<<=(Integer other)
+    {
+        assert(other >= 0);
+
+        if (!*this || !other)
+            return *this;
+
+        auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
+        auto const n(other / s);
+
+        std::vector<T> const v(n.template cast<longest_type>(), T{0});
+
+        bits_.insert(bits_.end(), v.begin(), v.end());
+
+        other -= n * s;
+
+        std::vector<T> bits(bits_.size() + 1, T{0});
+
+        std::copy(bits_.rbegin(), bits_.rend(), bits.rbegin());
+
+        bits_ = bits;
+
+        auto const shift{other.template cast<longest_type>()};
+
+        if (shift)
         {
-            assert(other >= 0);
-
-            if (!*this || !other)
-                return *this;
-
-            auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
-            auto const n(other / s);
-
-            std::vector<T> const v(n.template cast<longest_type>(), T{0});
-
-            bits_.insert(bits_.end(), v.begin(), v.end());
-
-            other -= n * s;
-
-            std::vector<T> bits(bits_.size() + 1, T{0});
-
-            std::copy(bits_.rbegin(), bits_.rend(), bits.rbegin());
-
-            bits_ = bits;
-
-            auto const shift{other.template cast<longest_type>()};
-
-            if (shift)
+            for (auto it{bits_.begin() + 1}; it != bits_.end(); ++it)
             {
-                for (auto it{bits_.begin() + 1}; it != bits_.end(); ++it)
-                {
-                    if ((*it >> (sizeof(T) * 8 - shift)))
-                        *(it - 1) |= (*it >> (sizeof(T) * 8 - shift));
+                if ((*it >> (sizeof(T) * 8 - shift)))
+                    *(it - 1) |= (*it >> (sizeof(T) * 8 - shift));
 
-                    *it <<= shift;
+                *it <<= shift;
+            }
+        }
+
+        adjust();
+
+        return *this;
+    }
+
+    CONSTEXPR Integer& operator>>=(Integer other)
+    {
+        assert(other >= 0);
+
+        if (!*this || !other)
+            return *this;
+
+        auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
+        auto const n(other / s);
+
+        bits_.resize(bits_.size() - n.template cast<longest_type>());
+
+        other -= n * s;
+
+        auto const shift{other.template cast<longest_type>()};
+
+        if (shift)
+        {
+            for (auto it{bits_.rbegin()}; it != bits_.rend(); ++it)
+            {
+                *it >>= shift;
+
+                if (it != bits_.rend() - 1 && (*(it + 1) & ((1 << shift) - 1)))
+                    *it |= (*(it +  1) & ((1 << shift) - 1)) << (sizeof(T) * 8 - shift);
+            }
+        }
+
+        if (bits_.empty())
+            bits_.emplace_back(T{0});
+
+        adjust();
+
+        return *this;
+    }
+
+    CONSTEXPR bool operator>=(Integer const& other) const
+    {
+        return operator>(other) || operator==(other);
+    }
+
+    CONSTEXPR bool operator>(Integer const& other) const
+    {
+        if (!isPositive_ && other.isPositive_)
+            return false;
+
+        std::vector<T> a(std::max(bits_.size(), other.bits_.size()), T{0});
+        std::vector<T> b{a};
+
+        std::copy(bits_.rbegin(), bits_.rend(), a.rbegin());
+        std::copy(other.bits_.rbegin(), other.bits_.rend(), b.rbegin());
+
+        auto const great{a > b};
+
+        return isPositive_ ? great : !great;
+    }
+
+    CONSTEXPR bool operator<=(Integer const& other) const
+    {
+        return operator<(other) || operator==(other);
+    }
+
+    CONSTEXPR bool operator<(Integer const& other) const
+    {
+        if (isPositive_ && !other.isPositive_)
+            return false;
+
+        std::vector<T> a(std::max(bits_.size(), other.bits_.size()), T{0});
+        std::vector<T> b{a};
+
+        std::copy(bits_.rbegin(), bits_.rend(), a.rbegin());
+        std::copy(other.bits_.rbegin(), other.bits_.rend(), b.rbegin());
+
+        auto const less{a < b};
+
+        return isPositive_ ? less : !less;
+    }
+
+    CONSTEXPR bool operator==(Integer const& other) const noexcept
+    {
+        if (bits_.size() != other.bits_.size())
+        {
+            if (bits_.size() > other.bits_.size())
+            {
+                for (size_t i{0}; i < bits_.size() - other.bits_.size(); ++i)
+                {
+                    if (bits_[i])
+                        return false;
                 }
             }
-
-            adjust();
-
-            return *this;
-        }
-
-        constexpr Integer& operator>>=(Integer other)
-        {
-            assert(other >= 0);
-
-            if (!*this || !other)
-                return *this;
-
-            auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
-            auto const n(other / s);
-
-            bits_.resize(bits_.size() - n.template cast<longest_type>());
-
-            other -= n * s;
-
-            auto const shift{other.template cast<longest_type>()};
-
-            if (shift)
+            else
             {
-                for (auto it{bits_.rbegin()}; it != bits_.rend(); ++it)
+                for (size_t i{0}; i < other.bits_.size() - bits_.size(); ++i)
                 {
-                    *it >>= shift;
-
-                    if (it != bits_.rend() - 1 && (*(it + 1) & ((1 << shift) - 1)))
-                        *it |= (*(it +  1) & ((1 << shift) - 1)) << (sizeof(T) * 8 - shift);
+                    if (other.bits_[i])
+                        return false;
                 }
             }
-
-            if (bits_.empty())
-                bits_.emplace_back(T{0});
-
-            adjust();
-
-            return *this;
         }
 
-        constexpr bool operator>=(Integer const& other) const
-        {
-            return operator>(other) || operator==(other);
-        }
+        bool zero{true};
 
-        constexpr bool operator>(Integer const& other) const
+        auto it1{bits_.rbegin()};
+        auto it2{other.bits_.rbegin()};
+
+        for (size_t i{0}; i < std::min(bits_.size(), other.bits_.size()); ++i)
         {
-            if (!isPositive_ && other.isPositive_)
+            if (*it1 != *it2)
                 return false;
 
-            std::vector<T> a(std::max(bits_.size(), other.bits_.size()), T{0});
-            std::vector<T> b{a};
+            if (*it1)
+                zero = false;
 
-            std::copy(bits_.rbegin(), bits_.rend(), a.rbegin());
-            std::copy(other.bits_.rbegin(), other.bits_.rend(), b.rbegin());
-
-            auto const great{a > b};
-
-            return isPositive_ ? great : !great;
+            ++it1;
+            ++it2;
         }
 
-        constexpr bool operator<=(Integer const& other) const
-        {
-            return operator<(other) || operator==(other);
-        }
+        if (isPositive_ != other.isPositive_ && !zero)
+            return false;
 
-        constexpr bool operator<(Integer const& other) const
+        return true;
+    }
+
+    template <typename S>
+    CONSTEXPR bool operator==(S const& other) const
+    {
+        return *this == Integer(other);
+    }
+
+    CONSTEXPR bool operator!=(Integer const& other) const
+    {
+        return !operator==(other);
+    }
+
+    template <typename S>
+    CONSTEXPR bool operator!=(S const& other) const
+    {
+        return *this != Integer(other);
+    }
+
+    CONSTEXPR Integer operator-() const
+    {
+        auto x(*this);
+
+        x.isPositive_ = !x.isPositive_;
+
+        return x;
+    }
+
+    CONSTEXPR Integer operator~() const
+    {
+        auto x(*this);
+
+        x.invert();
+
+        return x;
+    }
+
+    CONSTEXPR operator bool() const noexcept
+    {
+        return !!*this;
+    }
+
+    CONSTEXPR bool operator!() const noexcept
+    {
+        for (auto const& b : bits_)
         {
-            if (isPositive_ && !other.isPositive_)
+            if (b)
                 return false;
-
-            std::vector<T> a(std::max(bits_.size(), other.bits_.size()), T{0});
-            std::vector<T> b{a};
-
-            std::copy(bits_.rbegin(), bits_.rend(), a.rbegin());
-            std::copy(other.bits_.rbegin(), other.bits_.rend(), b.rbegin());
-
-            auto const less{a < b};
-
-            return isPositive_ ? less : !less;
         }
 
-        constexpr bool operator==(Integer const& other) const noexcept
+        return true;
+    }
+
+    CONSTEXPR Integer& operator--()
+    {
+        return *this -= 1;
+    }
+
+    CONSTEXPR Integer operator--(int)
+    {
+        auto x(*this);
+
+        operator--();
+
+        return x;
+    }
+
+    CONSTEXPR Integer& operator++()
+    {
+        return *this += 1;
+    }
+
+    CONSTEXPR Integer operator++(int)
+    {
+        auto x(*this);
+
+        operator++();
+
+        return x;
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator+=(S const& other)
+    {
+        return *this += Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator-=(S const& other)
+    {
+        return *this -= Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator/=(S const& other)
+    {
+        return *this /= Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator*=(S const& other)
+    {
+        return *this *= Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator%=(S const& other)
+    {
+        return *this %= Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator>>=(S const& other)
+    {
+        return *this >>= Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator<<=(S const& other)
+    {
+        return *this <<= Integer(other);
+    }
+
+    CONSTEXPR Integer& operator&=(Integer const& other)
+    {
+        std::vector<T> v1(std::max(bits_.size(), other.bits_.size()), 0);
+        std::vector<T> v2{v1};
+        std::vector<T> result{v1};
+
+        std::copy(bits_.rbegin(), bits_.rend(), v1.rbegin());
+        std::copy(other.bits_.rbegin(), other.bits_.rend(), v2.rbegin());
+
+        std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a & b; });
+
+        bits_ = result;
+
+        return *this;
+    }
+
+    CONSTEXPR Integer& operator|=(Integer const& other)
+    {
+        std::vector<T> v1(std::max(bits_.size(), other.bits_.size()), 0);
+        std::vector<T> v2{v1};
+        std::vector<T> result{v1};
+
+        std::copy(bits_.rbegin(), bits_.rend(), v1.rbegin());
+        std::copy(other.bits_.rbegin(), other.bits_.rend(), v2.rbegin());
+
+        std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a | b; });
+
+        bits_ = result;
+
+        return *this;
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator|=(S const& other)
+    {
+        return *this |= Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator&=(S const& other)
+    {
+        return *this &= Integer(other);
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator^=(S const& other)
+    {
+        return *this ^= Integer(other);
+    }
+
+    CONSTEXPR Integer& operator^=(Integer const& other)
+    {
+        std::vector<T> v1(std::max(bits_.size(), other.bits_.size()), 0);
+        std::vector<T> v2{v1};
+        std::vector<T> result{v1};
+
+        std::copy(bits_.rbegin(), bits_.rend(), v1.rbegin());
+        std::copy(other.bits_.rbegin(), other.bits_.rend(), v2.rbegin());
+
+        std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a ^ b; });
+
+        bits_ = result;
+
+        return *this;
+    }
+
+    template <typename S>
+    CONSTEXPR Integer& operator=(S const& other)
+    {
+        return *this = Integer(other);
+    }
+
+    CONSTEXPR std::string toString(size_t base = 10) const
+    {
+        assert(2 <= base && base <= 62);
+
+        std::string s;
+
+        if (isNan_)
         {
-            if (bits_.size() != other.bits_.size())
-            {
-                if (bits_.size() > other.bits_.size())
-                {
-                    for (size_t i{0}; i < bits_.size() - other.bits_.size(); ++i)
-                    {
-                        if (bits_[i])
-                            return false;
-                    }
-                }
-                else
-                {
-                    for (size_t i{0}; i < other.bits_.size() - bits_.size(); ++i)
-                    {
-                        if (other.bits_[i])
-                            return false;
-                    }
-                }
-            }
+            if (!isPositive_)
+                s = '-' + s;
 
-            bool zero{true};
+            s += "nan";
 
-            auto it1{bits_.rbegin()};
-            auto it2{other.bits_.rbegin()};
+            return s;
+        }
+        else if (isInfinity_)
+        {
+            if (!isPositive_)
+                s = '-' + s;
 
-            for (size_t i{0}; i < std::min(bits_.size(), other.bits_.size()); ++i)
-            {
-                if (*it1 != *it2)
-                    return false;
+            s += "inf";
 
-                if (*it1)
-                    zero = false;
-
-                ++it1;
-                ++it2;
-            }
-
-            if (isPositive_ != other.isPositive_ && !zero)
-                return false;
-
-            return true;
+            return s;
         }
 
-        template <typename S>
-        constexpr bool operator==(S const& other) const
+        if (base == 2)
         {
-            return *this == Integer(other);
-        }
-
-        constexpr bool operator!=(Integer const& other) const
-        {
-            return !operator==(other);
-        }
-
-        template <typename S>
-        constexpr bool operator!=(S const& other) const
-        {
-            return *this != Integer(other);
-        }
-
-        constexpr Integer operator-() const
-        {
-            auto x(*this);
-
-            x.isPositive_ = !x.isPositive_;
-
-            return x;
-        }
-
-        constexpr Integer operator~() const
-        {
-            auto x(*this);
-
-            x.invert();
-
-            return x;
-        }
-
-        constexpr operator bool() const noexcept
-        {
-            return !!*this;
-        }
-
-        constexpr bool operator!() const noexcept
-        {
-            for (auto const& b : bits_)
-            {
-                if (b)
-                    return false;
-            }
-
-            return true;
-        }
-
-        constexpr Integer& operator--()
-        {
-            return *this -= 1;
-        }
-
-        constexpr Integer operator--(int)
-        {
-            auto x(*this);
-
-            operator--();
-
-            return x;
-        }
-
-        constexpr Integer& operator++()
-        {
-            return *this += 1;
-        }
-
-        constexpr Integer operator++(int)
-        {
-            auto x(*this);
-
-            operator++();
-
-            return x;
-        }
-
-        template <typename S>
-        constexpr Integer& operator+=(S const& other)
-        {
-            return *this += Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator-=(S const& other)
-        {
-            return *this -= Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator/=(S const& other)
-        {
-            return *this /= Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator*=(S const& other)
-        {
-            return *this *= Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator%=(S const& other)
-        {
-            return *this %= Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator>>=(S const& other)
-        {
-            return *this >>= Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator<<=(S const& other)
-        {
-            return *this <<= Integer(other);
-        }
-
-        constexpr Integer& operator&=(Integer const& other)
-        {
-            std::vector<T> v1(std::max(bits_.size(), other.bits_.size()), 0);
-            std::vector<T> v2{v1};
-            std::vector<T> result{v1};
-
-            std::copy(bits_.rbegin(), bits_.rend(), v1.rbegin());
-            std::copy(other.bits_.rbegin(), other.bits_.rend(), v2.rbegin());
-
-            std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a & b; });
-
-            bits_ = result;
-
-            return *this;
-        }
-
-        constexpr Integer& operator|=(Integer const& other)
-        {
-            std::vector<T> v1(std::max(bits_.size(), other.bits_.size()), 0);
-            std::vector<T> v2{v1};
-            std::vector<T> result{v1};
-
-            std::copy(bits_.rbegin(), bits_.rend(), v1.rbegin());
-            std::copy(other.bits_.rbegin(), other.bits_.rend(), v2.rbegin());
-
-            std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a | b; });
-
-            bits_ = result;
-
-            return *this;
-        }
-
-        template <typename S>
-        constexpr Integer& operator|=(S const& other)
-        {
-            return *this |= Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator&=(S const& other)
-        {
-            return *this &= Integer(other);
-        }
-
-        template <typename S>
-        constexpr Integer& operator^=(S const& other)
-        {
-            return *this ^= Integer(other);
-        }
-
-        constexpr Integer& operator^=(Integer const& other)
-        {
-            std::vector<T> v1(std::max(bits_.size(), other.bits_.size()), 0);
-            std::vector<T> v2{v1};
-            std::vector<T> result{v1};
-
-            std::copy(bits_.rbegin(), bits_.rend(), v1.rbegin());
-            std::copy(other.bits_.rbegin(), other.bits_.rend(), v2.rbegin());
-
-            std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a ^ b; });
-
-            bits_ = result;
-
-            return *this;
-        }
-
-        template <typename S>
-        constexpr Integer& operator=(S const& other)
-        {
-            return *this = Integer(other);
-        }
-
-        constexpr std::string toString(size_t base = 10) const
-        {
-            assert(2 <= base && base <= 62);
-
-            std::string s;
-
-            if (isNan_)
-            {
-                if (!isPositive_)
-                    s = '-' + s;
-
-                s += "nan";
-
-                return s;
-            }
-            else if (isInfinity_)
-            {
-                if (!isPositive_)
-                    s = '-' + s;
-
-                s += "inf";
-
-                return s;
-            }
-
-            if (base == 2)
-            {
 #if __cplusplus >= 202002L
-                switch (sizeof(T))
-                {
-                    case 1: //unsigned char
-                        for (auto const& b : bits_)
-                            s += std::format("{:08b}", b);
-                        break;
+            switch (sizeof(T))
+            {
+            case 1: //unsigned char
+                for (auto const& b : bits_)
+                    s += std::format("{:08b}", b);
+                break;
 
-                    case 2: //unsigned short
-                        for (auto const& b : bits_)
-                            s += std::format("{:016b}", b);
-                        break;
+            case 2: //unsigned short
+                for (auto const& b : bits_)
+                    s += std::format("{:016b}", b);
+                break;
 
-                    case 4: //unsigned int, unsigned long
-                        for (auto const& b : bits_)
-                            s += std::format("{:032b}", b);
-                        break;
+            case 4: //unsigned int, unsigned long
+                for (auto const& b : bits_)
+                    s += std::format("{:032b}", b);
+                break;
 
-                    case 8: //unsigned long long
-                        for (auto const& b : bits_)
-                            s += std::format("{:064b}", b);
-                        break;
+            case 8: //unsigned long long
+                for (auto const& b : bits_)
+                    s += std::format("{:064b}", b);
+                break;
 
-                    case 16:
-                        for (auto const& b : bits_)
-                            s += std::format("{:0128b}", b);
-                        break;
-                }
+            case 16:
+                for (auto const& b : bits_)
+                    s += std::format("{:0128b}", b);
+                break;
+            }
 #else
-                for (auto it{bits_.rbegin()}; it != bits_.rend(); ++it)
-                {
-                    auto b{*it};
+            for (auto it{bits_.rbegin()}; it != bits_.rend(); ++it)
+            {
+                auto b{*it};
 
-                    for (size_t i{0}; i < sizeof(T) * 8; ++i)
-                    {
-                        s = (b % 2 ? '1' : '0') + s;
-                        b /= 2;
-                    }
+                for (size_t i{0}; i < sizeof(T) * 8; ++i)
+                {
+                    s = (b % 2 ? '1' : '0') + s;
+                    b /= 2;
                 }
+            }
 #endif
 
-                s = "0b" + s;
-            }
-            else if (base == 8)
-            {
+            s = "0b" + s;
+        }
+        else if (base == 8)
+        {
 #if __cplusplus >= 202002L
-                if (bits_.size() == 1)
-                    s = std::format("{:o}", bits_.back());
-                else
+            if (bits_.size() == 1)
+                s = std::format("{:o}", bits_.back());
+            else
 #else
-                {
-                    auto number(abs());
-
-                    if (!number)
-                        s = "0";
-
-                    while (number)
-                    {
-                        auto const tmp(number % 8);
-                        s = std::to_string(tmp.template cast<short>()) + s;
-                        number /= 8;
-                    }
-                }
-#endif
-
-                s = "0o" + s;
-            }
-            else if (base == 10)
-            {
-                auto number(abs());
-
-                if (bits_.size() == 1)
-                    s = std::to_string(bits_.back());
-                else
-                {
-                    if (!number)
-                        s = "0";
-
-                    auto const n{static_cast<T>(std::log10(static_cast<T>(~T{0})))};
-                    T const b(pow(T{10}, n));
-
-                    while (number)
-                    {
-                        auto const tmp(number % b);
-                        std::ostringstream oss;
-                        oss << std::setw(n) << std::setfill('0') << tmp.template cast<longest_type>();
-                        s = oss.str() + s;
-                        number /= b;
-                    }
-
-                    size_t i{0};
-
-                    while (s[i] == '0' && i != s.size())
-                        ++i;
-
-                    if (i == s.size())
-                        i = 0;
-
-                    s = s.substr(i);
-                }
-            }
-            else if (2 < base && base < 16)
-            {
-                auto number(abs());
-
-                if (bits_.size() == 1)
-                    s = std::to_string(bits_.back());
-                else
-                {
-                    if (!number)
-                        s = "0";
-
-                    while (number)
-                    {
-                        auto const tmp(number % static_cast<unsigned char>(base));;
-                        s = std::to_string(tmp.template cast<short>()) + s;
-                        number /= static_cast<unsigned char>(base);
-                    }
-                }
-            }
-            else if (base == 16)
-            {
-                auto number(abs());
-#if __cplusplus >= 202002L
-                switch (sizeof(T))
-                {
-                    case 1: //unsigned char
-                        for (auto const& b : bits_)
-                            s += std::format("{:02x}", b);
-                        break;
-
-                    case 2: //unsigned short
-                        for (auto const& b : bits_)
-                            s += std::format("{:04x}", b);
-                        break;
-
-                    case 4: //unsigned int, unsigned long
-                        for (auto const& b : bits_)
-                            s += std::format("{:08x}", b);
-                        break;
-
-                    case 8: //unsigned long long
-                        for (auto const& b : bits_)
-                            s += std::format("{:016x}", b);
-                        break;
-
-                    case 16:
-                        for (auto const& b : bits_)
-                            s += std::format("{:032x}", b);
-                        break;
-                }
-
-                if (bits_.size() == 1)
-                    s = std::format("{:x}", bits_.back());
-                else
-#else
-                {
-                    if (!number)
-                        s = "0";
-
-                    while (number)
-                    {
-                        auto const tmp(number % 16);
-                        if (number < 10)
-                            s = std::to_string(tmp.template cast<short>()) + s;
-                        else
-                            s = (char)('a' + tmp.template cast<short>() - 10) + s;
-                        number /= 16;
-                    }
-                }
-#endif
-                s = "0x" + s;
-            }
-            else if (base <= 62)
             {
                 auto number(abs());
 
@@ -1170,741 +1105,868 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                 while (number)
                 {
-                    auto const tmp(number % 62);
+                    auto const tmp(number % 8);
+                    s = std::to_string(tmp.template cast<short>()) + s;
+                    number /= 8;
+                }
+            }
+#endif
+
+                s = "0o" + s;
+        }
+        else if (base == 10)
+        {
+            auto number(abs());
+
+            if (bits_.size() == 1)
+                s = std::to_string(bits_.back());
+            else
+            {
+                if (!number)
+                    s = "0";
+
+                auto const n{static_cast<T>(std::log10(static_cast<T>(~T{0})))};
+                T const b(pow(T{10}, n));
+
+                while (number)
+                {
+                    auto const tmp(number % b);
+                    std::ostringstream oss;
+                    oss << std::setw(n) << std::setfill('0') << tmp.template cast<longest_type>();
+                    s = oss.str() + s;
+                    number /= b;
+                }
+
+                size_t i{0};
+
+                while (s[i] == '0' && i != s.size())
+                    ++i;
+
+                if (i == s.size())
+                    i = 0;
+
+                s = s.substr(i);
+            }
+        }
+        else if (2 < base && base < 16)
+        {
+            auto number(abs());
+
+            if (bits_.size() == 1)
+                s = std::to_string(bits_.back());
+            else
+            {
+                if (!number)
+                    s = "0";
+
+                while (number)
+                {
+                    auto const tmp(number % static_cast<unsigned char>(base));;
+                    s = std::to_string(tmp.template cast<short>()) + s;
+                    number /= static_cast<unsigned char>(base);
+                }
+            }
+        }
+        else if (base == 16)
+        {
+            auto number(abs());
+#if __cplusplus >= 202002L
+            switch (sizeof(T))
+            {
+            case 1: //unsigned char
+                for (auto const& b : bits_)
+                    s += std::format("{:02x}", b);
+                break;
+
+            case 2: //unsigned short
+                for (auto const& b : bits_)
+                    s += std::format("{:04x}", b);
+                break;
+
+            case 4: //unsigned int, unsigned long
+                for (auto const& b : bits_)
+                    s += std::format("{:08x}", b);
+                break;
+
+            case 8: //unsigned long long
+                for (auto const& b : bits_)
+                    s += std::format("{:016x}", b);
+                break;
+
+            case 16:
+                for (auto const& b : bits_)
+                    s += std::format("{:032x}", b);
+                break;
+            }
+
+            if (bits_.size() == 1)
+                s = std::format("{:x}", bits_.back());
+            else
+#else
+            {
+                if (!number)
+                    s = "0";
+
+                while (number)
+                {
+                    auto const tmp(number % 16);
                     if (number < 10)
                         s = std::to_string(tmp.template cast<short>()) + s;
-                    else if (number - 10 < 26)
-                        s = (char)('a' + tmp.template cast<short>() - 10) + s;
                     else
-                        s = (char)('A' + tmp.template cast<short>() - 36) + s;
-                    number /= 62;
+                        s = (char)('a' + tmp.template cast<short>() - 10) + s;
+                    number /= 16;
                 }
             }
-
-            if (!isPositive_)
-                s = '-' + s;
-
-            return s;
+#endif
+                s = "0x" + s;
         }
-
-        constexpr operator char() const noexcept
+        else if (base <= 62)
         {
-            return cast<char>();
-        }
+            auto number(abs());
 
-        constexpr operator unsigned char() const noexcept
-        {
-            return cast<unsigned char>();
-        }
+            if (!number)
+                s = "0";
 
-        constexpr operator short() const noexcept
-        {
-            return cast<short>();
-        }
-
-        template <typename S>
-        constexpr S cast() const noexcept
-        {
-            S n{0};
-
-            size_t const iMax{std::min(std::max(longest_type{1}, longest_type{sizeof(S) / sizeof(T)}), longest_type{bits_.size()})};
-            auto it{bits_.rbegin() + iMax - 1};
-
-            for (size_t i{0}; i < iMax; ++i)
+            while (number)
             {
-                n += *it;
-
-                if (i != iMax - 1)
-                    n <<= sizeof(T) * 8;
-
-                --it;
-            }
-
-            if (!isPositive_)
-                n = -n;
-
-            return n;
-        }
-
-        constexpr operator unsigned short() const noexcept
-        {
-            return cast<unsigned short>();
-        }
-
-        constexpr operator int() const noexcept
-        {
-            return cast<int>();
-        }
-
-        constexpr operator unsigned int() const noexcept
-        {
-            return cast<unsigned int>();
-        }
-
-        constexpr operator long() const noexcept
-        {
-            return cast<long>();
-        }
-
-        constexpr operator unsigned long() const noexcept
-        {
-            return cast<unsigned long>();
-        }
-
-        constexpr operator long long() const noexcept
-        {
-            return cast<long long>();
-        }
-
-        constexpr operator unsigned long long() const noexcept
-        {
-            return cast<unsigned long long>();
-        }
-
-        constexpr bool isNan() const noexcept
-        {
-            return isNan_;
-        }
-
-        constexpr void setNan() noexcept
-        {
-            isNan_ = true;
-            isInfinity_ = false;
-            bits_.clear();
-        }
-
-        constexpr bool isInfinity() const noexcept
-        {
-            return isInfinity_;
-        }
-
-        constexpr void setInfinity() noexcept
-        {
-            isNan_ = false;
-            isInfinity_ = true;
-            bits_.clear();
-        }
-
-        constexpr Integer abs() const
-        {
-            if (isNegative())
-                return -*this;
-
-            return *this;
-        }
-
-        constexpr size_t precision() const noexcept
-        {
-            return bits_.size();
-        }
-
-        constexpr void setPrecision(size_t precision)
-        {
-            assert(precision);
-
-            std::vector<T> bits(precision, T{0});
-
-            std::copy(bits_.rbegin(), bits_.rbegin() + std::min(bits_.size(), precision), bits.rbegin());
-
-            bits_ = bits;
-        }
-
-        template <typename URNG>
-        constexpr void setRandom(URNG& g) noexcept
-        {
-            isPositive_ = g() % 2;
-
-            for (auto& b : bits_)
-            {
-                auto const n{g()};
-
-                if (sizeof(T) <= sizeof(n))
-                    b = static_cast<T>(n);
+                auto const tmp(number % 62);
+                if (number < 10)
+                    s = std::to_string(tmp.template cast<short>()) + s;
+                else if (number - 10 < 26)
+                    s = (char)('a' + tmp.template cast<short>() - 10) + s;
                 else
-                {
-                    auto const iMax{sizeof(T) / sizeof(n)};
-
-                    for (size_t i{0}; i < iMax; ++i)
-                    {
-                        b += g();
-
-                        if (i != iMax - 1)
-                            b <<= sizeof(n) * 8;
-                    }
-                }
+                    s = (char)('A' + tmp.template cast<short>() - 36) + s;
+                number /= 62;
             }
         }
 
-        constexpr bool isPrime(size_t reps = 50) const
+        if (!isPositive_)
+            s = '-' + s;
+
+        return s;
+    }
+
+    CONSTEXPR operator char() const noexcept
+    {
+        return cast<char>();
+    }
+
+    CONSTEXPR operator unsigned char() const noexcept
+    {
+        return cast<unsigned char>();
+    }
+
+    CONSTEXPR operator short() const noexcept
+    {
+        return cast<short>();
+    }
+
+    template <typename S>
+    CONSTEXPR S cast() const noexcept
+    {
+        S n{0};
+
+        size_t const iMax{std::min(std::max(longest_type{1}, longest_type{sizeof(S) / sizeof(T)}), longest_type{bits_.size()})};
+        auto it{bits_.rbegin() + iMax - 1};
+
+        for (size_t i{0}; i < iMax; ++i)
         {
-            if (*this < 2)
-                return false;
+            n += *it;
 
-            if (*this != 2 && *this % 2 == 0)
-                return false;
+            if (i != iMax - 1)
+                n <<= sizeof(T) * 8;
 
-            auto s(*this - 1);
+            --it;
+        }
 
-            while (s % 2 == 0)
-                s /= 2;
+        if (!isPositive_)
+            n = -n;
 
-            auto mulmod{[] (Integer const& a, Integer b, Integer const& m) -> Integer//It returns true if number is prime otherwise false {
-                {
-                    Integer x{0};
-                    auto y{a % m};
+        return n;
+    }
 
-                    while (b > 0)
-                    {
-                        if (b % 2 == 1)
-                            x = (x + y) % m;
+    CONSTEXPR operator unsigned short() const noexcept
+    {
+        return cast<unsigned short>();
+    }
 
-                        y = (y * 2) % m;
-                        b /= 2;
-                    }
+    CONSTEXPR operator int() const noexcept
+    {
+        return cast<int>();
+    }
 
-                    return x % m;
-                }
-            };
+    CONSTEXPR operator unsigned int() const noexcept
+    {
+        return cast<unsigned int>();
+    }
 
-            auto modulo{[] (Integer const& base, Integer e, Integer const& m) -> Integer
-                {
-                    Integer x{1};
-                    auto y{base};
+    CONSTEXPR operator long() const noexcept
+    {
+        return cast<long>();
+    }
 
-                    while (e > 0)
-                    {
-                        if (e % 2 == 1)
-                            x = (x * y) % m;
+    CONSTEXPR operator unsigned long() const noexcept
+    {
+        return cast<unsigned long>();
+    }
 
-                        y = (y * y) % m;
-                        e = e / 2;
-                    }
+    CONSTEXPR operator long long() const noexcept
+    {
+        return cast<long long>();
+    }
 
-                    return x % m;
-                }
-            };
+    CONSTEXPR operator unsigned long long() const noexcept
+    {
+        return cast<unsigned long long>();
+    }
 
-            std::random_device rd;
-            auto const number(*this - 1);
+    CONSTEXPR bool isNan() const noexcept
+    {
+        return isNan_;
+    }
 
-            for (size_t i{0}; i < reps; ++i)
+    CONSTEXPR void setNan() noexcept
+    {
+        isNan_ = true;
+        isInfinity_ = false;
+        bits_.clear();
+    }
+
+    CONSTEXPR bool isInfinity() const noexcept
+    {
+        return isInfinity_;
+    }
+
+    CONSTEXPR void setInfinity() noexcept
+    {
+        isNan_ = false;
+        isInfinity_ = true;
+        bits_.clear();
+    }
+
+    CONSTEXPR Integer abs() const
+    {
+        if (isNegative())
+            return -*this;
+
+        return *this;
+    }
+
+    CONSTEXPR size_t precision() const noexcept
+    {
+        return bits_.size();
+    }
+
+    CONSTEXPR void setPrecision(size_t precision)
+    {
+        assert(precision);
+
+        std::vector<T> bits(precision, T{0});
+
+        std::copy(bits_.rbegin(), bits_.rbegin() + std::min(bits_.size(), precision), bits.rbegin());
+
+        bits_ = bits;
+    }
+
+    template <typename URNG>
+    CONSTEXPR void setRandom(URNG& g) noexcept
+    {
+        isPositive_ = g() % 2;
+
+        for (auto& b : bits_)
+        {
+            auto const n{g()};
+
+            if (sizeof(T) <= sizeof(n))
+                b = static_cast<T>(n);
+            else
             {
-                auto a(*this);
-                a.setRandom(rd);
-                a.setPositive();
-                a = a % number + 1;
+                auto const iMax{sizeof(T) / sizeof(n)};
 
-                auto temp{s};
-                auto mod{modulo(a, temp, *this)};
-
-                while (temp != number && !mod && mod != number)
+                for (size_t i{0}; i < iMax; ++i)
                 {
-                    mod = mulmod(mod, mod, *this);
-                    temp *= 2;
+                    b += g();
+
+                    if (i != iMax - 1)
+                        b <<= sizeof(n) * 8;
+                }
+            }
+        }
+    }
+
+    CONSTEXPR bool isPrime(size_t reps = 50) const
+    {
+        if (*this < 2)
+            return false;
+
+        if (*this != 2 && *this % 2 == 0)
+            return false;
+
+        auto s(*this - 1);
+
+        while (s % 2 == 0)
+            s >>= 1;
+
+        auto mulmod{[] (Integer const& a, Integer b, Integer const& m) -> Integer//It returns true if number is prime otherwise false {
+            {
+                Integer x{0};
+                auto y{a % m};
+
+                while (b > 0)
+                {
+                    if (b % 2 == 1)
+                        x = (x + y) % m;
+
+                    y = (y * 2) % m;
+                    b >>= 1;
                 }
 
-                if (mod != number && temp % 2 == 0)
-                    return false;
+                return x % m;
             }
+        };
 
-            return true;
-        }
-
-        constexpr void setPositive()
-        {
-            isPositive_ = true;
-        }
-
-        constexpr void setNegative()
-        {
-            isPositive_ = false;
-        }
-
-        static Integer nan()
-        {
-            static Integer n;
-            n.setNan();
-
-            return n;
-        }
-
-        static Integer infinity()
-        {
-            static Integer n;
-            n.setInfinity();
-
-            return n;
-        }
-
-        constexpr bool bit(size_t n) const noexcept
-        {
-            auto it{bits_.rbegin()};
-
-            while (it != bits_.rend() && n > sizeof(T) * 8)
+        auto modulo{[] (Integer const& base, Integer e, Integer const& m) -> Integer
             {
-                n -= sizeof(T) * 8;
-                ++it;
+                Integer x{1};
+                auto y{base};
+
+                while (e > 0)
+                {
+                    if (e % 2 == 1)
+                        x = (x * y) % m;
+
+                    y = (y * y) % m;
+                    e >>= 1;
+                }
+
+                return x % m;
             }
+        };
+
+        std::random_device rd;
+        auto const number(*this - 1);
+
+        for (size_t i{0}; i < reps; ++i)
+        {
+            auto a(*this);
+            a.setRandom(rd);
+            a.setPositive();
+            a = a % number + 1;
+
+            auto temp{s};
+            auto mod{modulo(a, temp, *this)};
+
+            while (temp != number && !mod && mod != number)
+            {
+                mod = mulmod(mod, mod, *this);
+                temp <<= 1;
+            }
+
+            if (mod != number && temp % 2 == 0)
+                return false;
+        }
+
+        return true;
+    }
+
+    CONSTEXPR void setPositive()
+    {
+        isPositive_ = true;
+    }
+
+    CONSTEXPR void setNegative()
+    {
+        isPositive_ = false;
+    }
+
+    static Integer nan()
+    {
+        static Integer n;
+        n.setNan();
+
+        return n;
+    }
+
+    static Integer infinity()
+    {
+        static Integer n;
+        n.setInfinity();
+
+        return n;
+    }
+
+    CONSTEXPR bool bit(size_t n) const noexcept
+    {
+        auto it{bits_.rbegin()};
+
+        while (it != bits_.rend() && n > sizeof(T) * 8)
+        {
+            n -= sizeof(T) * 8;
+            ++it;
+        }
+
+        if (it == bits_.rend())
+            return false;
+
+        return *it & (T{1} << n);
+    }
+
+    CONSTEXPR void setBit(size_t n, bool bit)
+    {
+        auto it{bits_.rbegin()};
+
+        while (n > sizeof(T) * 8)
+        {
+            n -= sizeof(T) * 8;
+            ++it;
 
             if (it == bits_.rend())
-                return false;
-
-            return *it & (T{1} << n);
-        }
-
-        constexpr void setBit(size_t n, bool bit)
-        {
-            auto it{bits_.rbegin()};
-
-            while (n > sizeof(T) * 8)
             {
-                n -= sizeof(T) * 8;
-                ++it;
-
-                if (it == bits_.rend())
-                {
-                    std::vector<T> bits(bits_.size() + 1, T{0});
-
-                    std::copy(bits_.rbegin(), bits_.rend(), bits.rbegin());
-
-                    bits_ = bits;
-
-                    it = bits_.rend() - 1;
-                }
-            }
-
-            if (bit)
-                *it |= T{1} << n;
-            else
-                *it &= ~(T{1} << n);
-        }
-
-        constexpr T bits(size_t n) const noexcept
-        {
-            if (n >= bits_.size())
-                return T{0};
-
-            return bits_[bits_.size() - 1 - n];
-        }
-
-        constexpr void setBits(size_t n, T const& bits)
-        {
-            if (bits_.size() < n)
-            {
-                std::vector<T> bits(n, T{0});
+                std::vector<T> bits(bits_.size() + 1, T{0});
 
                 std::copy(bits_.rbegin(), bits_.rend(), bits.rbegin());
 
                 bits_ = bits;
+
+                it = bits_.rend() - 1;
             }
-
-            bits_[bits_.size() - 1 - n] = bits;
         }
 
-        template <size_t N>
-        constexpr void setBits(size_t n, std::bitset<N> const& bits)
+        if (bit)
+            *it |= T{1} << n;
+        else
+            *it &= ~(T{1} << n);
+    }
+
+    CONSTEXPR T bits(size_t n) const noexcept
+    {
+        if (n >= bits_.size())
+            return T{0};
+
+        return bits_[bits_.size() - 1 - n];
+    }
+
+    CONSTEXPR void setBits(size_t n, T const& bits)
+    {
+        if (bits_.size() < n)
         {
-            for (size_t i{0}; i < bits.size(); ++i)
-                setBit(n + i, bits[i]);
+            std::vector<T> bits(n, T{0});
+
+            std::copy(bits_.rbegin(), bits_.rend(), bits.rbegin());
+
+            bits_ = bits;
         }
 
-        constexpr size_t count() const noexcept
-        {
-            size_t count{0};
+        bits_[bits_.size() - 1 - n] = bits;
+    }
 
-            for (auto b : bits_)
+    template <size_t N>
+    CONSTEXPR void setBits(size_t n, std::bitset<N> const& bits)
+    {
+        for (size_t i{0}; i < bits.size(); ++i)
+            setBit(n + i, bits[i]);
+    }
+
+    CONSTEXPR size_t count() const noexcept
+    {
+        size_t count{0};
+
+        for (auto b : bits_)
+        {
+            while (b)
             {
-                while (b)
-                {
-                    if (b & 1)
-                        ++count;
+                if (b & 1)
+                    ++count;
 
-                    b >>= 1;
-                }
+                b >>= 1;
             }
-
-            return count;
         }
 
-        constexpr size_t number() const noexcept
+        return count;
+    }
+
+    CONSTEXPR size_t number() const noexcept
+    {
+        size_t number{0};
+
+        auto it{bits_.begin()};
+
+        while (!*it && it != bits_.end())
+            ++it;
+
+        if (it != bits_.end())
         {
-            size_t number{0};
+            auto b{*it};
 
-            auto it{bits_.begin()};
-
-            while (!*it && it != bits_.end())
-                ++it;
-
-            if (it != bits_.end())
+            while (b)
             {
-                auto b{*it};
-
-                while (b)
-                {
-                    ++number;
-                    b >>= 1;
-                }
-
-                number += (std::distance(it, bits_.end()) - 1) * sizeof(T) * 8;
+                ++number;
+                b >>= 1;
             }
 
-            return number;
+            number += (std::distance(it, bits_.end()) - 1) * sizeof(T) * 8;
         }
 
-        constexpr bool isEven() const noexcept
-        {
-            if (bits_.empty())
-                return false;
+        return number;
+    }
 
-            return !(bits_.back() & 1);
-        }
+    CONSTEXPR bool isEven() const noexcept
+    {
+        if (bits_.empty())
+            return false;
 
-        constexpr bool isOdd() const noexcept
-        {
-            if (bits_.empty())
-                return false;
+        return !(bits_.back() & 1);
+    }
 
-            return bits_.back() & 1;
-        }
+    CONSTEXPR bool isOdd() const noexcept
+    {
+        if (bits_.empty())
+            return false;
 
-        template <typename S>
-        constexpr bool fits() const
-        {
-            return (*this == this->template cast<S>());
-        }
+        return bits_.back() & 1;
+    }
 
-        constexpr Integer sign() const
-        {
-            if (*this < 0)
-                return Integer(-1);
+    template <typename S>
+    CONSTEXPR bool fits() const
+    {
+        return (*this == this->template cast<S>());
+    }
 
-            return Integer(1);
-        }
+    CONSTEXPR Integer sign() const
+    {
+        if (*this < 0)
+            return Integer(-1);
 
-        constexpr void setSign(Integer const& other) noexcept
-        {
-            isPositive_ = other.isPositive_;
-        }
+        return Integer(1);
+    }
 
-        constexpr Integer previousPrime() const
-        {
-            if (isNan())
-                return *this;
+    CONSTEXPR void setSign(Integer const& other) noexcept
+    {
+        isPositive_ = other.isPositive_;
+    }
 
-            if (isInfinity() || *this < 2)
-                return nan();
+    CONSTEXPR Integer previousPrime() const
+    {
+        if (isNan())
+            return *this;
 
-            if (*this == 2)
-                return 2;
-            else if (*this == 3)
-                return 2;
+        if (isInfinity() || *this < 2)
+            return nan();
 
-            auto n(*this - 2);
+        if (*this == 2)
+            return 2;
+        else if (*this == 3)
+            return 2;
 
-            while (!n.isPrime())
-                n -= 2;
-        }
+        auto n(*this - 2);
 
-        constexpr Integer nextPrime() const
-        {
-            if (isNan())
-                return *this;
+        while (!n.isPrime())
+            n -= 2;
+    }
 
-            if (*this < 2)
-                return 2;
-            else if (*this == 2)
-                return 3;
-            else if (isInfinity())
-                return nan();
+    CONSTEXPR Integer nextPrime() const
+    {
+        if (isNan())
+            return *this;
 
-            auto n(*this + 2);
+        if (*this < 2)
+            return 2;
+        else if (*this == 2)
+            return 3;
+        else if (isInfinity())
+            return nan();
 
-            while (!n.isPrime())
-                n += 2;
-        }
+        auto n(*this + 2);
 
-        constexpr size_t size() const noexcept
-        {
-            return bits_.size();
-        }
+        while (!n.isPrime())
+            n += 2;
+    }
 
-        constexpr void adjust()
-        {
-            if (bits_.empty())
-                return;
+    CONSTEXPR size_t size() const noexcept
+    {
+        return bits_.size();
+    }
 
-            auto it{bits_.begin()};
+    CONSTEXPR void adjust()
+    {
+        if (bits_.empty())
+            return;
 
-            while (!*it && it != bits_.end())
-                ++it;
+        auto it{bits_.begin()};
 
-            if (it == bits_.end())
-                it = bits_.end() - 1;
+        while (!*it && it != bits_.end())
+            ++it;
 
-            bits_ = std::vector<T>{it, bits_.end()};
-        }
+        if (it == bits_.end())
+            it = bits_.end() - 1;
+
+        bits_ = std::vector<T>{it, bits_.end()};
+    }
 
 #ifdef USING_GMP
-        constexpr mpz_class toMpz_class() const
-        {
-            return mpz_class{toString(2).substr(2), 2};
-        }
+    CONSTEXPR mpz_class toMpz_class() const
+    {
+        auto s{toString(2)};
+        s.replace(s.find("0b"), 2, "");
+
+        return mpz_class{s, 2};
+    }
 #endif
-    private:
-        bool isPositive_{true};
-        std::vector<T> bits_;
-        bool isNan_{false};
-        bool isInfinity_{false};
+private:
+    bool isPositive_{true};
+    std::vector<T> bits_;
+    bool isNan_{false};
+    bool isInfinity_{false};
 };
 
 template <typename T>
-constexpr Integer<T> operator*(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator*(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs *= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator+(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator+(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs += rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator-(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator-(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs -= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator/(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator/(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs /= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator%(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator%(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs %= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator&(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator&(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs &= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator|(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator|(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs |= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator^(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator^(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs ^= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator<<(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator<<(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs <<= rhs;
 }
 
 template <typename T>
-constexpr Integer<T> operator>>(Integer<T> lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator>>(Integer<T> lhs, Integer<T> const& rhs)
 {
     return lhs >>= rhs;
 }
 
 template <typename T, typename S>
-constexpr bool operator>(Integer<T> const& lhs, S const& rhs) noexcept
+CONSTEXPR bool operator>(Integer<T> const& lhs, S const& rhs) noexcept
 {
     return lhs.operator>(Integer<T>(rhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator>(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR bool operator>(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator<(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator>=(Integer<T> const& lhs, S const& rhs) noexcept
+CONSTEXPR bool operator>=(Integer<T> const& lhs, S const& rhs) noexcept
 {
     return lhs.operator>=(Integer<T>(rhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator>=(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR bool operator>=(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator<=(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator<(Integer<T> const& lhs, S const& rhs) noexcept
+CONSTEXPR bool operator<(Integer<T> const& lhs, S const& rhs) noexcept
 {
     return lhs.operator<(Integer<T>(rhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator<(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR bool operator<(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator>(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator<=(Integer<T> const& lhs, S const& rhs) noexcept
+CONSTEXPR bool operator<=(Integer<T> const& lhs, S const& rhs) noexcept
 {
     return lhs.operator<=(Integer<T>(rhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator<=(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR bool operator<=(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator>=(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator==(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR bool operator==(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator==(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-constexpr bool operator!=(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR bool operator!=(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator!=(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator+(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator+(Integer<T> lhs, S const& rhs)
 {
     return lhs += Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator+(S const& lhs, Integer<T> rhs)
+CONSTEXPR Integer<T> operator+(S const& lhs, Integer<T> rhs)
 {
     return rhs += Integer<T>(lhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator-(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator-(Integer<T> lhs, S const& rhs)
 {
     return lhs -= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator-(S const& lhs, Integer<T> rhs)
+CONSTEXPR Integer<T> operator-(S const& lhs, Integer<T> rhs)
 {
     return -(rhs -= Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator/(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator/(Integer<T> lhs, S const& rhs)
 {
     return lhs /= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator/(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator/(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) /= rhs;
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator*(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator*(Integer<T> lhs, S const& rhs)
 {
     return lhs *= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator*(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator*(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) *= rhs;
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator%(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator%(Integer<T> lhs, S const& rhs)
 {
     return lhs %= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator%(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator%(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) %= rhs;
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator<<(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator<<(Integer<T> lhs, S const& rhs)
 {
     return lhs <<= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator<<(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator<<(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) <<= rhs;
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator>>(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator>>(Integer<T> lhs, S const& rhs)
 {
     return lhs >>= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator>>(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator>>(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) >>= rhs;
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator&(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator&(Integer<T> lhs, S const& rhs)
 {
     return lhs &= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator&(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator&(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) &= rhs;
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator|(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator|(Integer<T> lhs, S const& rhs)
 {
     return lhs |= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator|(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator|(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) |= rhs;
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator^(Integer<T> lhs, S const& rhs)
+CONSTEXPR Integer<T> operator^(Integer<T> lhs, S const& rhs)
 {
     return lhs ^= Integer<T>(rhs);
 }
 
 template <typename T, typename S>
-constexpr Integer<T> operator^(S const& lhs, Integer<T> const& rhs)
+CONSTEXPR Integer<T> operator^(S const& lhs, Integer<T> const& rhs)
 {
     return Integer<T>(lhs) ^= rhs;
 }
 
 template <typename T>
-inline constexpr std::ostream& operator<<(std::ostream& os, Integer<T> const& n)
+inline CONSTEXPR std::ostream& operator<<(std::ostream& os, Integer<T> const& n)
 {
     return os << n.toString();
 }
 
 template <typename T>
-constexpr Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
+CONSTEXPR Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
 {
     if (a.isNan() || b.isNan() || a.isInfinity() || b.isInfinity())
         return Integer<T>::nan();
@@ -1925,19 +1987,19 @@ constexpr Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
 }
 
 template <typename T, typename S>
-constexpr Integer<T> gcd(Integer<T> const& a, S const& b)
+CONSTEXPR Integer<T> gcd(Integer<T> const& a, S const& b)
 {
     return gcd(a, Integer<T>(b));
 }
 
 template <typename T, typename S>
-constexpr Integer<T> gcd(S const& a, Integer<T> const& b)
+CONSTEXPR Integer<T> gcd(S const& a, Integer<T> const& b)
 {
     return gcd(Integer<T>(a), b);
 }
 
 template <typename T>
-constexpr Integer<T> factorial(Integer<T> const& n)
+CONSTEXPR Integer<T> factorial(Integer<T> const& n)
 {
     if (n.isNan() || n.isInfinity())
         return n;
@@ -1951,7 +2013,7 @@ constexpr Integer<T> factorial(Integer<T> const& n)
 }
 
 template <typename T>
-constexpr Integer<T> pow(Integer<T> base, Integer<T> exp)
+CONSTEXPR Integer<T> pow(Integer<T> base, Integer<T> exp)
 {
     assert(exp >= 0);
 
@@ -1986,19 +2048,19 @@ constexpr Integer<T> pow(Integer<T> base, Integer<T> exp)
 }
 
 template <typename T, typename S>
-constexpr Integer<T> pow(Integer<T> const& base, S const& exp)
+CONSTEXPR Integer<T> pow(Integer<T> const& base, S const& exp)
 {
     return pow(base, Integer<T>(exp));
 }
 
 template <typename T, typename S>
-constexpr Integer<T> pow(S const& base, Integer<T> const& exp)
+CONSTEXPR Integer<T> pow(S const& base, Integer<T> const& exp)
 {
     return pow(Integer<T>(base), exp);
 }
 
 template <typename T>
-constexpr Integer<T> powm(Integer<T> base, Integer<T> exp, Integer<T> const& mod)
+CONSTEXPR Integer<T> powm(Integer<T> base, Integer<T> exp, Integer<T> const& mod)
 {
     assert(exp >= 0);
 
@@ -2024,19 +2086,19 @@ constexpr Integer<T> powm(Integer<T> base, Integer<T> exp, Integer<T> const& mod
 }
 
 template <typename T, typename S, typename U>
-constexpr Integer<T> powm(Integer<T> const& base, S const& exp, U const& mod)
+CONSTEXPR Integer<T> powm(Integer<T> const& base, S const& exp, U const& mod)
 {
     return powm(base, Integer<T>(exp), Integer<T>(mod));
 }
 
 template <typename T>
-constexpr Integer<T> abs(Integer<T> const& n)
+CONSTEXPR Integer<T> abs(Integer<T> const& n)
 {
     return n.abs();
 }
 
 template <typename T>
-constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, Integer<T> const& divisor)
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, Integer<T> const& divisor)
 {
     if (!divisor)
         return {Integer<T>::nan(), Integer<T>::nan()};
@@ -2101,19 +2163,19 @@ constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
 }
 
 template <typename T, typename S>
-constexpr std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, S const& divisor)
 {
     return computeQr(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-constexpr std::pair<Integer<T>, Integer<T> > computeQr(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(S const& dividend, Integer<T> const& divisor)
 {
     return computeQr(Integer<T>(dividend), divisor);
 }
 
 template <typename T>
-constexpr Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> const& divisor)
+CONSTEXPR Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> const& divisor)
 {
     if (!divisor)
         return Integer<T>::nan();
@@ -2158,13 +2220,13 @@ constexpr Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
 }
 
 template <typename T, typename S>
-constexpr std::pair<Integer<T>, Integer<T> > computeQuotient(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotient(Integer<T> const& dividend, S const& divisor)
 {
     return computeQuotient(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-constexpr std::pair<Integer<T>, Integer<T> > computeQuotient(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotient(S const& dividend, Integer<T> const& divisor)
 {
     return computeQuotient(Integer<T>(dividend), divisor);
 }

@@ -4,7 +4,7 @@ class TestInteger : public QObject
 {
     Q_OBJECT
 
-    private slots:/*
+    private slots:
         void testAddition();
         void testAnd();
         void testBits();
@@ -21,15 +21,15 @@ class TestInteger : public QObject
         void testShort();
         void testString();
         void testSubstraction();
-        void testToString();*/
+        void testToString();
         void testUnsignedLongLong();
-        //void testUnsignedShort();
+        void testUnsignedShort();
 };
 
 #include <iostream>
 
 #include "Integer.h"
-/*
+
 void TestInteger::testAddition()
 {
     QVERIFY(Integerc(0) + 0 == 0);
@@ -39,6 +39,7 @@ void TestInteger::testAddition()
     QVERIFY(Integerc(-3) + 2 == -1);
     QVERIFY(Integerc(17) + 10 == 27);
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -54,6 +55,7 @@ void TestInteger::testAddition()
 
         QVERIFY(n3 == n3_.get_str());
     }
+#endif
 
     std::random_device rd;
     long long const a{rd()};
@@ -69,6 +71,7 @@ void TestInteger::testAnd()
     QVERIFY((Integerc(0) & 1) == 0);
     QVERIFY((Integerc(1) & 1) == 1);
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -84,6 +87,7 @@ void TestInteger::testAnd()
 
         QVERIFY(n3 == n3_.get_str());
     }
+#endif
 
     std::random_device rd;
     unsigned long long const a{rd()};
@@ -164,6 +168,7 @@ void TestInteger::testDivision()
         QVERIFY(qr4.second == 2);
     }
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -191,6 +196,7 @@ void TestInteger::testDivision()
         QVERIFY(n1 == q * n2 + r);
         QVERIFY(n1_ == q_ * n2_ + r_);
     }
+#endif
 
     {
         std::random_device rd;
@@ -200,6 +206,7 @@ void TestInteger::testDivision()
         QVERIFY((Integerc(a) / b).template cast<long long>() == a / b);
     }
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         unsigned long const a{rd()};
@@ -208,6 +215,7 @@ void TestInteger::testDivision()
         mpz_class const n{(mpz_class{a} * mpz_class{b}) / c};
         QVERIFY((Integerc(a) * b) / c == n.get_str());
     }
+#endif
 }
 
 void TestInteger::testEqualities()
@@ -244,6 +252,7 @@ void TestInteger::testModulo()
     QVERIFY(Integerc(5) % -3 == -1);
     QVERIFY(Integerc(5) % 1 == 0);
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -265,6 +274,7 @@ void TestInteger::testModulo()
 
         QVERIFY(n3 == n3_.get_str());
     }
+#endif
 
     {
         std::random_device rd;
@@ -274,6 +284,7 @@ void TestInteger::testModulo()
         QVERIFY((Integerc(a) % b).template cast<long long>() == a % b);
     }
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         unsigned long const a{rd()};
@@ -282,6 +293,7 @@ void TestInteger::testModulo()
         mpz_class const n{(mpz_class{a} * mpz_class{b}) % c};
         QVERIFY((Integerc(a) * b) % c == n.get_str());
     }
+#endif
 }
 
 void TestInteger::testMultiplication()
@@ -301,6 +313,7 @@ void TestInteger::testMultiplication()
     QVERIFY(Integerc(827382986) * 2670051752 == 2209155391344291472ull);
     QVERIFY(Integerll(17539966127645434034ull) * 452240028370ull == Integerll("7932274779175210128837123544580"));
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -316,6 +329,7 @@ void TestInteger::testMultiplication()
 
         QVERIFY(n3 == n3_.get_str());
     }
+#endif
 
     {
         std::random_device rd;
@@ -325,12 +339,22 @@ void TestInteger::testMultiplication()
         QVERIFY((Integerc(a) * b).template cast<long long>() == a * b);
     }
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         unsigned long const a{rd()};
         unsigned long const b{rd()};
         mpz_class const n{mpz_class{a} * mpz_class{b}};
         QVERIFY(Integerc(a) * b == n.get_str());
+    }
+#endif
+
+    {
+        Integerll const a{0ull, 0ull, 35521434ull, 14919252733983618111ull};
+        Integerll const b{11163967620057660708ull, 5245663108828415198ull, 4063525853430116991ull, 8147888677444386816ull};
+
+        QVERIFY(a * b == "45918528047859382727956397566465766535802613706550573885714125513512139783633707483925386458498848522240");
+        QVERIFY(a * b == mpz_class{a.toMpz_class() * b.toMpz_class()});
     }
 }
 
@@ -341,6 +365,7 @@ void TestInteger::testOr()
     QVERIFY((Integerc(0) | 1) == 1);
     QVERIFY((Integerc(1) | 1) == 1);
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -356,6 +381,7 @@ void TestInteger::testOr()
 
         QVERIFY(n3 == n3_.get_str());
     }
+#endif
 
     std::random_device rd;
     unsigned long long const a{rd()};
@@ -394,7 +420,7 @@ void TestInteger::testPrimes()
     QVERIFY(Integerc((unsigned char)23).isPrime());
     QVERIFY(Integerc((unsigned char)29).isPrime());
     QVERIFY(Integerc((unsigned char)31).isPrime());
-    QVERIFY(Integerll("4113101149215104800030529537915953170486139623539759933135949994882770404074832568499").isPrime());
+    QVERIFY(Integerll("4113101149215104800030529537915953170486139623539759933135949994882770404074832568499").isPrime(10));
 }
 
 void TestInteger::testShift()
@@ -455,6 +481,7 @@ void TestInteger::testSubstraction()
     QVERIFY(Integerc(3) - 2 == 1);
     QVERIFY(Integerc(17) - 10 == 7);
 
+#ifdef USING_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -470,6 +497,7 @@ void TestInteger::testSubstraction()
 
         QVERIFY(n3 == n3_.get_str());
     }
+#endif
 
     std::random_device rd;
     long long const a{rd()};
@@ -495,7 +523,7 @@ void TestInteger::testToString()
     QVERIFY(Integerc(61).toString(62) == "Z");
     QVERIFY(Integerll("94882770404074832568499").toString() == "94882770404074832568499");
 }
-*/
+
 void TestInteger::testUnsignedLongLong()
 {
     QVERIFY(!Integerll(0ull));
@@ -543,21 +571,8 @@ void TestInteger::testUnsignedLongLong()
         QVERIFY(qr.first == 452240028370ull);
         QVERIFY(qr.second == "2511973644799747096503184818228555377241860558862408039904124816691570905857945011775");
     }
-
-    {
-        Integerll const dividend{1752978906791100414ull, 17302730669534860820ull, 9059786443215215959ull,
-                                 9345944946542391547ull, 3881191166405769800ull, 10491326217656830396ull,
-                                 8127051706860233982ull, 16295777354888773632ull};
-        Integerll const divisor{35521434ull, 14919252733983618111ull, 1302913595559511957ull, 9115028167675518012ull,
-                                17539966127645434035ull};
-
-        auto const qr{computeQr(dividend, divisor)};
-
-        QVERIFY(qr.first != 0ull);
-        //QVERIFY(qr.second == "2511973644799747096503184818228555377241860558862408039904124816691570905857945011775");*/
-    }
 }
-/*
+
 void TestInteger::testUnsignedShort()
 {
     QVERIFY(!Integers((unsigned short)0));
@@ -568,6 +583,6 @@ void TestInteger::testUnsignedShort()
     QVERIFY(Integers((unsigned short)1).cast<unsigned short>() == (unsigned short)1);
     QVERIFY(Integers((unsigned short)-1).cast<unsigned short>() == (unsigned short)-1);
 }
-*/
+
 QTEST_MAIN(TestInteger)
 #include "testinteger.moc"

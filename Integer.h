@@ -1399,22 +1399,22 @@ public:
         if (*this < 2)
             return false;
 
-        if (*this != 2 && *this % 2 == 0)
+        if (*this != 2 && !(*this & 1))
             return false;
 
         auto s(*this - 1);
 
-        while (s % 2 == 0)
+        while (!(s & 1))
             s >>= 1;
 
         auto mulmod{[] (Integer const& a, Integer b, Integer const& m) -> Integer//It returns true if number is prime otherwise false {
             {
-                Integer x{0};
+                Integer x(0);
                 auto y{a % m};
 
                 while (b > 0)
                 {
-                    if (b % 2 == 1)
+                    if (b & 1)
                         x = (x + y) % m;
 
                     y = (y * 2) % m;
@@ -1427,12 +1427,12 @@ public:
 
         auto modulo{[] (Integer const& base, Integer e, Integer const& m) -> Integer
             {
-                Integer x{1};
+                Integer x(1);
                 auto y{base};
 
                 while (e > 0)
                 {
-                    if (e % 2 == 1)
+                    if (e & 1)
                         x = (x * y) % m;
 
                     y = (y * y) % m;
@@ -1462,7 +1462,7 @@ public:
                 temp <<= 1;
             }
 
-            if (mod != number && temp % 2 == 0)
+            if (mod != number && !(temp & 1))
                 return false;
         }
 

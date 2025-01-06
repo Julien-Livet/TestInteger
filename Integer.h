@@ -270,6 +270,11 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             }
         }
 
+        template <typename S>
+        CONSTEXPR explicit Integer(Integer<S> const& other) : Integer(other.toString(2), 2)
+        {
+        }
+
         CONSTEXPR bool isPositive() const noexcept
         {
             return isPositive_;
@@ -322,7 +327,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             {
                 if (isPositive_ && other.isPositive_)
                 {
-                    if (this->template fits<longest_type>() && other.template fits<longest_type>())
+                    if (!(other & 1))
+                    {
+                        *this <<= 1;
+                        *this *= (rhs >> 1);
+                    }
+                    else if (this->template fits<longest_type>() && other.template fits<longest_type>())
                     {
                         auto const a{this->template cast<longest_type>()};
                         auto const b{other.template cast<longest_type>()};
@@ -613,6 +623,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
         CONSTEXPR Integer& operator/=(Integer const& other)
         {
+            auto const lhs(*this);
+            auto const rhs(other);
+
             if (other.isNegative())
             {
                 *this = -*this;
@@ -632,7 +645,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     *this = 0;
                 else if (isPositive_ && other.isPositive_)
                 {
-                    if (this->template fits<longest_type>() && other.template fits<longest_type>())
+                    if (!(other & 1))
+                    {
+                        *this >>= 1;
+                        *this /= (rhs >> 1);
+                    }
+                    else if (this->template fits<longest_type>() && other.template fits<longest_type>())
                         *this = this->template cast<longest_type>() / other.template cast<longest_type>();
                     else
                         *this = computeQuotient(*this, other);
@@ -646,11 +664,18 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             assert(abs() <= n.abs());
 
+#ifdef USING_GMP
+        assert(*this == mpz_class{lhs.template cast<mpz_class>() / rhs.template cast<mpz_class>()});
+#endif
+
             return *this;
         }
 
         CONSTEXPR Integer& operator%=(Integer const& other)
         {
+            auto const lhs(*this);
+            auto const rhs(other);
+
             if (!other || other.isNan() || other.isInfinity())
                 setNan();
             else
@@ -671,13 +696,30 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         isPositive_ = isPositive;
                     }
                     else
-                        *this = computeQr(*this, other).second;
+                    {
+                        auto const qr{computeQr(*this, other)};
+
+                        assert(*this == qr.first * rhs + qr.second);
+
+                        *this = qr.second;
+                    }
                 }
                 else
-                    *this = computeQr(*this, other).second;
+                {
+                    auto const qr{computeQr(*this, other)};
+
+                    assert(*this == qr.first * rhs + qr.second);
+
+                    *this = qr.second;
+                }
             }
 
             assert(abs() < other.abs());
+
+#ifdef USING_GMP
+            if (lhs > 0 && rhs > 0)
+                assert(*this == mpz_class{lhs.template cast<mpz_class>() % rhs.template cast<mpz_class>()});
+#endif
 
             return *this;
         }
@@ -1424,7 +1466,30 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             while (!(s & 1))
                 s >>= 1;
 
-            auto mulmod{[] (Integer const& a, Integer b, Integer const& m) -> Integer//It returns true if number is prime otherwise false {
+            auto reduction{[] (Integer const& t, Integer const& R, Integer const& n, Integer const& n_) -> Integer
+                {
+                    auto const m(((t % R) * n_) % R);
+                    auto const x((t + m * n) / R);
+
+                    if (x < n)
+                        return x;
+                    else
+                        return x - n;
+                }
+            };
+
+            auto redmulmod{[&reduction] (Integer const& a, Integer const& b, Integer const& n,
+                                         Integer const& R, Integer const& n_, Integer const& R2modn) -> Integer
+                {
+                    auto const reda(reduction(a * R2modn, R, n, n_));
+                    auto const redb(reduction(b * R2modn, R, n, n_));
+                    auto const redc(reduction(reda * redb, R, n, n_));
+
+                    return reduction(redc, R, n, n_);
+                }
+            };
+
+            auto mulmod{[] (Integer const& a, Integer b, Integer const& m) -> bool//It returns true if number is prime otherwise false {
                 {
                     Integer x(0);
                     auto y{a % m};
@@ -1434,7 +1499,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         if (b & 1)
                             x = (x + y) % m;
 
-                        y = (y * 2) % m;
+                        y <<= 1;
+                        y %= m;
                         b >>= 1;
                     }
 
@@ -1442,17 +1508,48 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             };
 
-            auto modulo{[] (Integer const& base, Integer e, Integer const& m) -> Integer
+            auto modulo{[&redmulmod] (Integer const& base, Integer e, Integer const& m) -> Integer
                 {
                     Integer x(1);
                     auto y{base};
 
+                    Integer R(2);
+
+                    while (R <= m)
+                        R <<= 1;
+
+                    if (!(m & 1))
+                        ++R;
+
+                    while (!m.isCoprime(R))
+                    {
+                        if (!(m & 1))
+                            --R;
+
+                        R <<= 1;
+
+                        if (!(m & 1))
+                            ++R;
+                    }
+
+                    Integer R_, m_;
+
+                    gcdext(R, -m, R_, m_);
+
+                    auto const R2modn((R * R) % m);
+
                     while (e > 0)
                     {
                         if (e & 1)
+                        {
                             x = (x * y) % m;
+                            //assert((x * y) % m == redmulmod(x, y, m, R, m_, R2modn));
+                            //x = redmulmod(x, y, m, R, m_, R2modn);
+                        }
 
                         y = (y * y) % m;
+                        //assert((y * y) % m == redmulmod(y, y, m, R, m_, R2modn));
+                        //y = redmulmod(y, y, m, R, m_, R2modn);
                         e >>= 1;
                     }
 
@@ -1719,6 +1816,11 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             if (it != bits_.begin())
                 bits_ = std::vector<T>{it, bits_.end()};
+        }
+
+        CONSTEXPR bool isCoprime(Integer const& other) const noexcept
+        {
+            return gcd(*this, other) == 1;
         }
 
     private:
@@ -2087,6 +2189,16 @@ CONSTEXPR Integer<T> pow(Integer<T> base, Integer<T> exp)
     if (exp.isInfinity())
         return exp;
 
+    if (base < 0)
+    {
+        auto n(pow(base.abs(), exp));
+
+        if (exp & 1)
+            n = -n;
+
+        return n;
+    }
+
     if (base == 2)
         return Integer<T>(1) << exp;
 
@@ -2297,6 +2409,28 @@ template <typename T, typename S>
 CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotient(S const& dividend, Integer<T> const& divisor)
 {
     return computeQuotient(Integer<T>(dividend), divisor);
+}
+
+template <typename T>
+CONSTEXPR Integer<T> gcdext(Integer<T> const& a, Integer<T> const& b, Integer<T>& u, Integer<T>& v)
+{
+    if (!b)
+    {
+        u = 1;
+        v = 0;
+
+        return a;
+    }
+    else
+    {
+        Integer<T> u1, v1;
+        auto const gcd(gcdext(b, a % b, u1, v1));
+
+        u = v1;
+        v = u1 - (a / b) * v1;
+
+        return gcd;
+    }
 }
 
 using Integerc = Integer<unsigned char>;

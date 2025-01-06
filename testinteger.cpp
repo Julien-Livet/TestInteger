@@ -223,6 +223,41 @@ void TestInteger::testEqualities()
     QVERIFY(-Integerc(1) == -1);
     QVERIFY(-Integerl(1) == -1);
     QVERIFY(Integerc(6) == 6);
+
+    Integerll const a(234);
+    Integerll const b(167);
+    Integerll const n(293);
+    Integerll const R(1000);
+    Integerll const R_(247), n_(843);
+
+    auto const R2modn((R * R) % n);
+
+    QVERIFY(R2modn == 284);
+
+    auto reduction{[] (Integerll const& t, Integerll const& R, Integerll const& n, Integerll const& n_) -> Integerll
+        {
+            auto const m(((t % R) * n_) % R);
+            auto const x((t + m * n) / R);
+
+            if (x < n)
+                return x;
+            else
+                return x - n;
+        }
+    };
+
+    auto redmulmod{[&reduction] (Integerll const& a, Integerll const& b, Integerll const& n,
+                                 Integerll const& R, Integerll const& n_, Integerll const& R2modn) -> Integerll
+        {
+            auto const reda(reduction(a * R2modn, R, n, n_));
+            auto const redb(reduction(b * R2modn, R, n, n_));
+            auto const redc(reduction(reda * redb, R, n, n_));
+
+            return reduction(redc, R, n, n_);
+        }
+    };
+
+    QVERIFY(((a * b) % n == redmulmod(a, b, n, R, n_, R2modn)));
 }
 
 void TestInteger::testInequalities()

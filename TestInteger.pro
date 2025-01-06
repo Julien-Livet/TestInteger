@@ -2,6 +2,11 @@ QT += testlib
 
 CONFIG += c++17 object_parallel_to_source
 
+CONFIG(debug, debug|release) {
+} else {
+    DEFINES += NDEBUG
+}
+
 DEFINES += USING_GMP
 
 INCLUDEPATH += .. \

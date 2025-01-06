@@ -61,7 +61,7 @@ void TestInteger::testAddition()
     long long const a{rd()};
     long long const b{rd()};
     //std::cout << "a b a+b " << a << " " << b << " " << a + b << std::endl;
-    QVERIFY((Integerc(a) + b).template cast<long long>() == a + b);
+    QVERIFY((Integerc(a) + b).cast<long long>() == a + b);
 }
 
 void TestInteger::testAnd()
@@ -93,7 +93,7 @@ void TestInteger::testAnd()
     unsigned long long const a{rd()};
     unsigned long long const b{rd()};
     //std::cout << "a b a&b " << a << " " << b << " " << a & b << std::endl;
-    QVERIFY((Integerc(a) & b).template cast<unsigned long long>() == (a & b));
+    QVERIFY((Integerc(a) & b).cast<unsigned long long>() == (a & b));
 }
 
 void TestInteger::testBits()
@@ -203,7 +203,7 @@ void TestInteger::testDivision()
         long long const a{rd()};
         long long const b{rd()};
         //std::cout << "a b a/b " << a << " " << b << " " << a / b << std::endl;
-        QVERIFY((Integerc(a) / b).template cast<long long>() == a / b);
+        QVERIFY((Integerc(a) / b).cast<long long>() == a / b);
     }
 
 #ifdef USING_GMP
@@ -281,7 +281,7 @@ void TestInteger::testModulo()
         long long const a{rd()};
         long long const b{rd()};
         //std::cout << "a b a%b " << a << " " << b << " " << a % b << std::endl;
-        QVERIFY((Integerc(a) % b).template cast<long long>() == a % b);
+        QVERIFY((Integerc(a) % b).cast<long long>() == a % b);
     }
 
 #ifdef USING_GMP
@@ -336,7 +336,7 @@ void TestInteger::testMultiplication()
         long long const a{static_cast<short>(rd())};
         long long const b{static_cast<short>(rd())};
         //std::cout << "a b a*b " << a << " " << b << " " << a * b << std::endl;
-        QVERIFY((Integerc(a) * b).template cast<long long>() == a * b);
+        QVERIFY((Integerc(a) * b).cast<long long>() == a * b);
     }
 
 #ifdef USING_GMP
@@ -347,15 +347,15 @@ void TestInteger::testMultiplication()
         mpz_class const n{mpz_class{a} * mpz_class{b}};
         QVERIFY(Integerc(a) * b == n.get_str());
     }
-#endif
 
     {
         Integerll const a{0ull, 0ull, 35521434ull, 14919252733983618111ull};
         Integerll const b{11163967620057660708ull, 5245663108828415198ull, 4063525853430116991ull, 8147888677444386816ull};
 
         QVERIFY(a * b == "45918528047859382727956397566465766535802613706550573885714125513512139783633707483925386458498848522240");
-        QVERIFY(a * b == mpz_class{a.toMpz_class() * b.toMpz_class()});
+        QVERIFY(a * b == mpz_class{a.cast<mpz_class>() * b.cast<mpz_class>()});
     }
+#endif
 }
 
 void TestInteger::testOr()
@@ -387,7 +387,7 @@ void TestInteger::testOr()
     unsigned long long const a{rd()};
     unsigned long long const b{rd()};
     //std::cout << "a b a|b " << a << " " << b << " " << a | b << std::endl;
-    QVERIFY((Integerc(a) | b).template cast<unsigned long long>() == (a | b));
+    QVERIFY((Integerc(a) | b).cast<unsigned long long>() == (a | b));
 }
 
 void TestInteger::testPow()
@@ -420,7 +420,7 @@ void TestInteger::testPrimes()
     QVERIFY(Integerc((unsigned char)23).isPrime());
     QVERIFY(Integerc((unsigned char)29).isPrime());
     QVERIFY(Integerc((unsigned char)31).isPrime());
-    QVERIFY(Integerll("4113101149215104800030529537915953170486139623539759933135949994882770404074832568499").isPrime(10));
+    QVERIFY(Integerll("4113101149215104800030529537915953170486139623539759933135949994882770404074832568499").isPrime(1));
 }
 
 void TestInteger::testShift()
@@ -437,7 +437,7 @@ void TestInteger::testShift()
         unsigned long long const a{rd()};
         unsigned long long const b{rd() % 32};
         //std::cout << "a b a<<b " << a << " " << b << " " << (a << b) << std::endl;
-        QVERIFY((Integerc(a) << b).template cast<unsigned long long>() == a << b);
+        QVERIFY((Integerc(a) << b).cast<unsigned long long>() == a << b);
     }
 
     {
@@ -445,7 +445,7 @@ void TestInteger::testShift()
         a <<= 32;
         unsigned long long const b{rd() % 32};
         //std::cout << "a b a>>b " << a << " " << b << " " << (a >> b) << std::endl;
-        QVERIFY((Integerc(a) >> b).template cast<unsigned long long>() == a >> b);
+        QVERIFY((Integerc(a) >> b).cast<unsigned long long>() == a >> b);
     }
 }
 
@@ -503,7 +503,7 @@ void TestInteger::testSubstraction()
     long long const a{rd()};
     long long const b{rd()};
     //std::cout << "a b a-b " << a << " " << b << " " << a - b << std::endl;
-    QVERIFY((Integerc(a) - b).template cast<long long>() == a - b);
+    QVERIFY((Integerc(a) - b).cast<long long>() == a - b);
 }
 
 void TestInteger::testToString()

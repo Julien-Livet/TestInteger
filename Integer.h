@@ -291,9 +291,10 @@ public:
             bits_[i] = ~bits_[i];
     }
 
-    CONSTEXPR Integer& operator*=(Integer other)
+    CONSTEXPR Integer& operator*=(Integer const& other)
     {
-        auto const num(*this);
+        auto const lhs(*this);
+        auto const rhs(other);
 
         if (other.isNegative())
         {
@@ -390,7 +391,7 @@ public:
                         mpz_pow_ui(_2_2m.get_mpz_t(), _2_2m.get_mpz_t(), 2 * m);
                         mpz_class _2_m{2};
                         mpz_pow_ui(_2_m.get_mpz_t(), _2_m.get_mpz_t(), m);
-                        mpz_class const n1_{num.toMpz_class() * other.toMpz_class()};
+                        mpz_class const n1_{lhs.toMpz_class() * rhs.toMpz_class()};
                         mpz_class const n2_{z2.toMpz_class() * _2_2m
                                             + z1.toMpz_class() * _2_m
                                             + z0.toMpz_class()};
@@ -458,7 +459,7 @@ public:
                     mpz_pow_ui(_2_2o.get_mpz_t(), _2_2o.get_mpz_t(), 2 * o);
                     mpz_class _2_o{2};
                     mpz_pow_ui(_2_o.get_mpz_t(), _2_o.get_mpz_t(), o);
-                    mpz_class const n1_{num.toMpz_class() * other.toMpz_class()};
+                    mpz_class const n1_{lhs.toMpz_class() * rhs.toMpz_class()};
                     mpz_class const n2_{z2.toMpz_class() * _2_2o
                                         + z1.toMpz_class() * _2_o
                                         + z0.toMpz_class()};
@@ -485,7 +486,7 @@ public:
         }
 
 #ifdef USING_GMP
-        assert(*this == mpz_class{num.toMpz_class() * other.toMpz_class()});
+        assert(*this == mpz_class{lhs.toMpz_class() * rhs.toMpz_class()});
 #endif
 
         return *this;
@@ -645,7 +646,11 @@ public:
             if ((isPositive_ && other.isPositive_) ||
                 (!isPositive_ && !other.isPositive_))
             {
-                if (abs().template fits<longest_type>() && other.abs().template fits<longest_type>())
+                if (other == 1)
+                    *this = 0;
+                else if (other == 2)
+                    *this &= 1;
+                else if (abs().template fits<longest_type>() && other.abs().template fits<longest_type>())
                 {
                     auto const isPositive{isPositive_};
 
@@ -1700,7 +1705,8 @@ public:
         if (it == bits_.end())
             it = bits_.end() - 1;
 
-        bits_ = std::vector<T>{it, bits_.end()};
+        if (it != bits_.begin())
+            bits_ = std::vector<T>{it, bits_.end()};
     }
 
 #ifdef USING_GMP
@@ -2109,8 +2115,12 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
     else if (dividend < 0 && divisor < 0)
     {
         auto qr{computeQr(-dividend, -divisor)};
-        ++qr.first;
-        qr.second += divisor;
+
+        if (qr.second)
+        {
+            ++qr.first;
+            qr.second += divisor;
+        }
 
         return qr;
     }
@@ -2118,8 +2128,11 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
     {
         auto qr{computeQr(dividend, -divisor)};
 
-        qr.first = -qr.first - 1;
-        qr.second += divisor;
+        if (qr.second)
+        {
+            qr.first = -qr.first - 1;
+            qr.second += divisor;
+        }
 
         return qr;
     }

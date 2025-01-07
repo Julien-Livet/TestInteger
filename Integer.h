@@ -2543,19 +2543,18 @@ CONSTEXPR Integer<T> primorial(Integer<T> n)
 }
 
 template <typename T>
-CONSTEXPR int jacobi(Integer<T> const& a, Integer<T> const& n)
+CONSTEXPR int jacobi(Integer<T> const& a, Integer<T> n)
 {
     assert(n > 0 && n.isOdd());
 
     int result(1);
-    Integer<T> number(1);
     Integer<T> prime(2);
 
-    while (number < n)
+    while (n != 1)
     {
         if (!(n % prime))
         {
-            number *= prime;
+            n /= prime;
             result *= legendre(a, prime);
         }
         else

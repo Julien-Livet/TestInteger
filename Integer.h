@@ -1535,7 +1535,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         y = redmulmod(y, y, m, R, m_, R2modn);
                         while (y < 0)
                             y += m;
-                        assert(y_ == (y * y) % m);
+                        assert(y == (y_ * y_) % m);
                         e >>= 1;
                     }
 

@@ -11,8 +11,8 @@ class TestInteger : public QObject
         void testChar();
         void testDivision();
         void testEqualities();
-        void testInequalities();
         void testGcd();
+        void testInequalities();
         void testModulo();
         void testMultiplication();
         void testOr();
@@ -299,6 +299,62 @@ void TestInteger::testEqualities()
 
         QVERIFY(((a * b) % n == redmulmod(a, b, n, R, n_, R2modn)));
     }
+
+    {
+        Integerll x(4), y(16), m(23);
+        Integerll R(2);
+
+        while (R <= m)
+            R <<= 1;
+
+        if (!(m & 1))
+            ++R;
+
+        while (!m.isCoprime(R))
+        {
+            if (!(m & 1))
+                --R;
+
+            R <<= 1;
+
+            if (!(m & 1))
+                ++R;
+        }
+
+        Integerll R_, m_;
+
+        auto const d(gcdExtended(R, -m, R_, m_));
+
+        QVERIFY(R * R_ - m * m_ == d);
+
+        if (d == -1)
+        {
+            R_ = -R;
+            m_ = -m_;
+        }
+
+        auto const R2modm((R * R) % m);
+
+        auto res(redmulmod(x, y, m, R, m_, R2modm));
+        while (res < 0)
+            res += m;
+
+        QVERIFY((x * y) % m == res);
+    }
+}
+
+void TestInteger::testGcd()
+{
+    QVERIFY(gcd(8_z, 12) == 4);
+
+    auto const a{120_z};
+    auto const b{23_z};
+    auto u{0_z}, v{0_z};
+
+    auto const d(gcdExtended(a, b, u, v));
+
+    QVERIFY(d == 1);
+    QVERIFY(a * u + b * v == d);
 }
 
 void TestInteger::testInequalities()
@@ -316,20 +372,6 @@ void TestInteger::testInequalities()
     QVERIFY(Integerc(3) > 1);
     QVERIFY(Integerc(-1) < 0);
     QVERIFY(Integerc(-2) > -3);
-}
-
-void TestInteger::testGcd()
-{
-    QVERIFY(gcd(8_z, 12) == 4);
-
-    auto const a{120_z};
-    auto const b{23_z};
-    auto u{0_z}, v{0_z};
-
-    auto const d{gcdExtended(a, b, u, v)};
-
-    QVERIFY(d == 1);
-    QVERIFY(a * u + b * v == d);
 }
 
 void TestInteger::testModulo()

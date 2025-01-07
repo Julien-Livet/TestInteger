@@ -1524,12 +1524,18 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     {
                         if (e & 1)
                         {
-                            assert((x * y) % m == redmulmod(x, y, m, R, m_, R2modn));
+                            auto const x_(x);
                             x = redmulmod(x, y, m, R, m_, R2modn);
+                            while (x < 0)
+                                x += m;
+                            assert(x == (x_ * y) % m);
                         }
 
-                        assert((y * y) % m == redmulmod(y, y, m, R, m_, R2modn));
+                        auto const y_(y);
                         y = redmulmod(y, y, m, R, m_, R2modn);
+                        while (y < 0)
+                            y += m;
+                        assert(y_ == (y * y) % m);
                         e >>= 1;
                     }
 

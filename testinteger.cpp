@@ -564,18 +564,20 @@ void TestInteger::testPrimes()
     }
 #endif
 
-    QVERIFY((2_z).isPrime());
+    QVERIFY((2_z).isPrime() == 2);
     QVERIFY(!(4_z).isPrime());
-    QVERIFY((3_z).isPrime());
-    QVERIFY((5_z).isPrime());
-    QVERIFY((7_z).isPrime());
-    QVERIFY((11_z).isPrime());
-    QVERIFY((13_z).isPrime());
-    QVERIFY((17_z).isPrime());
-    QVERIFY((19_z).isPrime());
-    QVERIFY((23_z).isPrime());
-    QVERIFY((29_z).isPrime());
-    QVERIFY((31_z).isPrime());
+    QVERIFY((3_z).isPrime() == 2);
+    QVERIFY((5_z).isPrime() == 2);
+    QVERIFY((7_z).isPrime() == 2);
+    QVERIFY((11_z).isPrime() == 2);
+    QVERIFY((13_z).isPrime() == 2);
+    QVERIFY((17_z).isPrime() == 2);
+    QVERIFY((19_z).isPrime() == 2);
+    QVERIFY((23_z).isPrime() == 2);
+    QVERIFY((29_z).isPrime() == 2);
+    QVERIFY((31_z).isPrime() == 2);
+    QVERIFY((1299709_z).isPrime());//100'000th prime
+    QVERIFY((13359555403_z).isPrime());//600'000'000th prime
     QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime(1));
 }
 

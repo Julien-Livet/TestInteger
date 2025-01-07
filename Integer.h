@@ -2161,6 +2161,24 @@ CONSTEXPR Integer<T> gcd(S const& a, Integer<T> const& b)
 }
 
 template <typename T>
+CONSTEXPR Integer<T> lcm(Integer<T> const& a, Integer<T> const& b)
+{
+    return (a * b).abs() / gcd(a, b);
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> lcm(Integer<T> const& a, S const& b)
+{
+    return lcm(a, Integer<T>(b));
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> lcm(S const& a, Integer<T> const& b)
+{
+    return lcm(Integer<T>(a), b);
+}
+
+template <typename T>
 CONSTEXPR Integer<T> gcdExtended(Integer<T> a, Integer<T> b, Integer<T>& u, Integer<T>& v)
 {
     if (!a && !b)

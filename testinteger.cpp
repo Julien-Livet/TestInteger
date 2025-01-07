@@ -355,6 +355,9 @@ void TestInteger::testGcd()
 
     QVERIFY(d == 1);
     QVERIFY(a * u + b * v == d);
+
+    QVERIFY(lcm(4_z, 6) == 12);
+    QVERIFY(lcm(21_z, 6) == 42);
 }
 
 void TestInteger::testInequalities()
@@ -552,7 +555,7 @@ void TestInteger::testPrimes()
     QVERIFY((23_z).isPrime());
     QVERIFY((29_z).isPrime());
     QVERIFY((31_z).isPrime());
-    QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime());
+    QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime(1));
 }
 
 void TestInteger::testShift()

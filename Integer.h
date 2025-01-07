@@ -1757,14 +1757,16 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 return nan();
 
             if (*this == 2)
-                return 2;
+                return Integer(2);
             else if (*this == 3)
-                return 2;
+                return Integer(2);
 
             auto n(*this - 2);
 
             while (!n.isPrime())
                 n -= 2;
+
+            return n;
         }
 
         CONSTEXPR Integer nextPrime() const
@@ -1773,9 +1775,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 return *this;
 
             if (*this < 2)
-                return 2;
+                return Integer(2);
             else if (*this == 2)
-                return 3;
+                return Integer(3);
             else if (isInfinity())
                 return nan();
 
@@ -1783,6 +1785,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             while (!n.isPrime())
                 n += 2;
+
+            return n;
         }
 
         CONSTEXPR size_t size() const noexcept
@@ -2521,6 +2525,132 @@ CONSTEXPR Integer<T> fibonacci(Integer<T> n)
     }
 
     return fn;
+}
+
+template <typename T>
+CONSTEXPR Integer<T> primorial(Integer<T> n)
+{
+    Integer<T> result(1);
+    Integer<T> number(2);
+
+    while (number <= n)
+    {
+        result *= number;
+        number = number.nextPrime();
+    }
+
+    return result;
+}
+
+template <typename T>
+CONSTEXPR int jacobi(Integer<T> const& a, Integer<T> const& n)
+{
+    assert(n > 0 && n.isOdd());
+
+    int result(1);
+    Integer<T> number(1);
+    Integer<T> prime(2);
+
+    while (number < n)
+    {
+        if (!(n % prime))
+        {
+            number *= prime;
+            result *= legendre(a, prime);
+        }
+        else
+            prime = prime.nextPrime();
+    }
+
+    return result;
+}
+
+template <typename T, typename S>
+CONSTEXPR int jacobi(Integer<T> const& a, S const& n)
+{
+    return jacobi(a, Integer<T>(n));
+}
+
+template <typename T, typename S>
+CONSTEXPR int jacobi(S const& a, Integer<T> const& n)
+{
+    return jacobi(Integer<T>(a), n);
+}
+
+template <typename T>
+CONSTEXPR int legendre(Integer<T> const& a, Integer<T> const& p)
+{
+    assert(p.isPrime());
+
+    if (!(a % p))
+        return 0;
+    else
+    {
+        bool isResidue{false};
+
+        if (p == 2)
+            isResidue = true;
+        else
+            isResidue = (powm(a, (p - 1) / 2, p) == 1);
+
+        if (isResidue)
+            return 1;
+        else
+            return -1;
+    }
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> legendre(Integer<T> const& a, S const& p)
+{
+    return legendre(a, Integer<T>(p));
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> legendre(S const& a, Integer<T> const& p)
+{
+    return legendre(Integer<T>(a), p);
+}
+
+template <typename T>
+CONSTEXPR int kronecker(Integer<T> const& a, Integer<T> const& b)
+{
+    if (a == b)
+        return 1;
+    else
+        return 0;
+}
+
+template <typename T, typename S>
+CONSTEXPR int kronecker(Integer<T> const& a, S const& b)
+{
+    return kronecker(a, Integer<T>(b));
+}
+
+template <typename T, typename S>
+CONSTEXPR int kronecker(S const& a, Integer<T> const& b)
+{
+    return kronecker(Integer<T>(a), b);
+}
+
+template <typename T>
+CONSTEXPR Integer<T> binomial(Integer<T> const& n, Integer<T> const& k)
+{
+    assert(n >= 0 && k >= 0);
+
+    return factorial(n) / (factorial(k) * factorial(n - k));
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> binomial(Integer<T> const& n, S const& k)
+{
+    return binomial(n, Integer<T>(k));
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> binomial(S const& n, Integer<T> const& k)
+{
+    return binomial(Integer<T>(n), k);
 }
 
 using Integerc = Integer<unsigned char>;

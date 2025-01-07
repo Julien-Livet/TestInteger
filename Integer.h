@@ -31,7 +31,7 @@
 #include <gmpxx.h>
 #endif
 
-using longest_type = unsigned long long;
+using longest_type = uintmax_t;
 
 template <typename T, typename Enable = void>
 class Integer;
@@ -371,32 +371,6 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                             y1.bits_ = std::vector<T>(1, T{0});
                             y1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & other.bits_.back()) >> m;
 
-                            if (!(*this == ((x1 << m) | x0)))
-                            {
-                            std::cout << "*this ";
-                            for (auto const& b : bits_)
-                                std::cout << (unsigned long long)b << "ull, ";
-                            std::cout << std::endl;
-                            std::cout << "x1 ";
-                            for (auto const& b : x1.bits_)
-                                std::cout << (unsigned long long)b << "ull, ";
-                            std::cout << std::endl;
-                            std::cout << "x0 ";
-                            for (auto const& b : x0.bits_)
-                                std::cout << (unsigned long long)b << "ull, ";
-                            std::cout << std::endl;
-                            std::cout << "other ";
-                            for (auto const& b : other.bits_)
-                                std::cout << (unsigned long long)b << "ull, ";
-                            std::cout << std::endl;
-                            std::cout << "y1 ";
-                            for (auto const& b : y1.bits_)
-                                std::cout << (unsigned long long)b << "ull, ";
-                            std::cout << std::endl;
-                            std::cout << "y0 ";
-                            for (auto const& b : y0.bits_)
-                                std::cout << (unsigned long long)b << "ull, ";
-                            std::cout << std::endl;}
                             assert(*this == ((x1 << m) | x0));
                             assert(other == ((y1 << m) | y0));
 
@@ -714,7 +688,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             }
 
-            assert(abs() < other.abs());
+            assert(abs() < rhs.abs());
 
 #ifdef USING_GMP
             if (lhs > 0 && rhs > 0)
@@ -1468,7 +1442,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             auto reduction{[] (Integer const& t, Integer const& R, Integer const& n, Integer const& n_) -> Integer
                 {
-                    auto const m(((t % R) * n_) % R);
+                    auto const m((t % R) * n_ % R);
                     auto const x((t + m * n) / R);
 
                     if (x < n)
@@ -1478,8 +1452,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             };
 
-            auto redmulmod{[&reduction] (Integer const& a, Integer const& b, Integer const& n,
-                                         Integer const& R, Integer const& n_, Integer const& R2modn) -> Integer
+            auto redmulmod{[&reduction] (Integer const& a, Integer b, Integer const& n,
+                                                           Integer const& R, Integer const& n_, Integer const& R2modn) -> Integer
                 {
                     auto const reda(reduction(a * R2modn, R, n, n_));
                     auto const redb(reduction(b * R2modn, R, n, n_));
@@ -1534,7 +1508,15 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                     Integer R_, m_;
 
-                    gcdext(R, -m, R_, m_);
+                    auto const d(gcdExtended(R, -m, R_, m_));
+
+                    assert(R * R_ - m * m_ == d);
+
+                    if (d == -1)
+                    {
+                        R_ = -R;
+                        m_ = -m_;
+                    }
 
                     auto const R2modn((R * R) % m);
 
@@ -1542,14 +1524,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     {
                         if (e & 1)
                         {
-                            x = (x * y) % m;
-                            //assert((x * y) % m == redmulmod(x, y, m, R, m_, R2modn));
-                            //x = redmulmod(x, y, m, R, m_, R2modn);
+                            assert((x * y) % m == redmulmod(x, y, m, R, m_, R2modn));
+                            x = redmulmod(x, y, m, R, m_, R2modn);
                         }
 
-                        y = (y * y) % m;
-                        //assert((y * y) % m == redmulmod(y, y, m, R, m_, R2modn));
-                        //y = redmulmod(y, y, m, R, m_, R2modn);
+                        assert((y * y) % m == redmulmod(y, y, m, R, m_, R2modn));
+                        y = redmulmod(y, y, m, R, m_, R2modn);
                         e >>= 1;
                     }
 
@@ -2162,6 +2142,43 @@ CONSTEXPR Integer<T> gcd(S const& a, Integer<T> const& b)
 }
 
 template <typename T>
+CONSTEXPR Integer<T> gcdExtended(Integer<T> a, Integer<T> b, Integer<T>& u, Integer<T>& v)
+{
+    if (!a && !b)
+        return Integer<T>(0);
+
+    Integer<T> r1(a), u1(1), v1(0);
+    Integer<T> r2(b), u2(0), v2(1);
+    Integer<T> q, r_temp, u_temp, v_temp;
+
+    while (r2 != 0)
+    {
+        q = r1 / r2;
+        r_temp = r1 - q * r2;
+        u_temp = u1 - q * u2;
+        v_temp = v1 - q * v2;
+
+        r1 = r2;
+        u1 = u2;
+        v1 = v2;
+        r2 = r_temp;
+        u2 = u_temp;
+        v2 = v_temp;
+    }
+
+    u = u1;
+    v = v1;
+
+    return r1;
+}
+
+template <typename T, typename S1, typename S2>
+CONSTEXPR Integer<T> gcdExtended(S1 const& a, S2 const& b, Integer<T>& u, Integer<T>& v)
+{
+    return gcdExtended(Integer<T>(a), Integer<T>(b), u, v);
+}
+
+template <typename T>
 CONSTEXPR Integer<T> factorial(Integer<T> const& n)
 {
     if (n.isNan() || n.isInfinity())
@@ -2173,6 +2190,30 @@ CONSTEXPR Integer<T> factorial(Integer<T> const& n)
         return Integer<T>(1);
 
     return n * factorial(n - 1);
+}
+
+template <typename T>
+CONSTEXPR Integer<T> doubleFactorial(Integer<T> const& n)
+{
+    return factorial(factorial(n));
+}
+
+template <typename T>
+CONSTEXPR Integer<T> multiFactorial(Integer<T> const& n, Integer<T> const& m)
+{
+    return pow(factorial(n), m);
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> multiFactorial(Integer<T> const& n, S const& m)
+{
+    return multiFactorial(n, Integer<T>(m));
+}
+
+template <typename T, typename S>
+CONSTEXPR Integer<T> multiFactorial(S const& n, Integer<T> const& m)
+{
+    return multiFactorial(Integer<T>(n), m);
 }
 
 template <typename T>
@@ -2411,26 +2452,31 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotient(S const& dividend, 
     return computeQuotient(Integer<T>(dividend), divisor);
 }
 
-template <typename T>
-CONSTEXPR Integer<T> gcdext(Integer<T> const& a, Integer<T> const& b, Integer<T>& u, Integer<T>& v)
+template <typename T, typename S>
+CONSTEXPR Integer<T> fibonacci(Integer<T> n)
 {
-    if (!b)
+    assert(n >= 0);
+
+    if (!n)
+        return 0;
+    else if (n == 1)
+        return 1;
+
+    n -= 1;
+
+    Integer<T> fn_2(0);
+    Integer<T> fn_1(1);
+    Integer<T> fn;
+
+    while (n)
     {
-        u = 1;
-        v = 0;
-
-        return a;
+        fn = fn_1 + fn_2;
+        fn_2 = fn_1;
+        fn_1 = fn;
+        --n;
     }
-    else
-    {
-        Integer<T> u1, v1;
-        auto const gcd(gcdext(b, a % b, u1, v1));
 
-        u = v1;
-        v = u1 - (a / b) * v1;
-
-        return gcd;
-    }
+    return fn;
 }
 
 using Integerc = Integer<unsigned char>;
@@ -2462,6 +2508,11 @@ Integerl operator""_zl(char const* str)
 Integerll operator""_zll(char const* str)
 {
     return Integerll(str);
+}
+
+Integer<uintmax_t> operator""_z(char const* str)
+{
+    return Integer<uintmax_t>(str);
 }
 
 #endif // INTEGER_H

@@ -12,6 +12,7 @@ class TestInteger : public QObject
         void testDivision();
         void testEqualities();
         void testInequalities();
+        void testGcd();
         void testModulo();
         void testMultiplication();
         void testOr();
@@ -227,12 +228,6 @@ void TestInteger::testEqualities()
     Integerll const a(234);
     Integerll const b(167);
     Integerll const n(293);
-    Integerll const R(1000);
-    Integerll const R_(247), n_(843);
-
-    auto const R2modn((R * R) % n);
-
-    QVERIFY(R2modn == 284);
 
     auto reduction{[] (Integerll const& t, Integerll const& R, Integerll const& n, Integerll const& n_) -> Integerll
         {
@@ -257,7 +252,53 @@ void TestInteger::testEqualities()
         }
     };
 
-    QVERIFY(((a * b) % n == redmulmod(a, b, n, R, n_, R2modn)));
+    {
+        Integerll const R(1000);
+        Integerll const R_(247), n_(843);
+
+        auto const R2modn((R * R) % n);
+
+        QVERIFY(R2modn == 284);
+
+        QVERIFY(((a * b) % n == redmulmod(a, b, n, R, n_, R2modn)));
+    }
+
+    {
+        Integerll R(2);
+
+        while (R <= n)
+            R <<= 1;
+
+        if (!(n & 1))
+            ++R;
+
+        while (!n.isCoprime(R))
+        {
+            if (!(n & 1))
+                --R;
+
+            R <<= 1;
+
+            if (!(n & 1))
+                ++R;
+        }
+
+        Integerll R_, n_;
+
+        auto const d(gcdExtended(R, -n, R_, n_));
+
+        QVERIFY(R * R_ - n * n_ == d);
+
+        if (d == -1)
+        {
+            R_ = -R;
+            n_ = -n_;
+        }
+
+        auto const R2modn((R * R) % n);
+
+        QVERIFY(((a * b) % n == redmulmod(a, b, n, R, n_, R2modn)));
+    }
 }
 
 void TestInteger::testInequalities()
@@ -275,6 +316,20 @@ void TestInteger::testInequalities()
     QVERIFY(Integerc(3) > 1);
     QVERIFY(Integerc(-1) < 0);
     QVERIFY(Integerc(-2) > -3);
+}
+
+void TestInteger::testGcd()
+{
+    QVERIFY(gcd(8_z, 12) == 4);
+
+    auto const a{120_z};
+    auto const b{23_z};
+    auto u{0_z}, v{0_z};
+
+    auto const d{gcdExtended(a, b, u, v)};
+
+    QVERIFY(d == 1);
+    QVERIFY(a * u + b * v == d);
 }
 
 void TestInteger::testModulo()
@@ -443,19 +498,19 @@ void TestInteger::testPow()
 
 void TestInteger::testPrimes()
 {
-    QVERIFY(Integerc((unsigned char)2).isPrime());
-    QVERIFY(!Integerc((unsigned char)4).isPrime());
-    QVERIFY(Integerc((unsigned char)3).isPrime());
-    QVERIFY(Integerc((unsigned char)5).isPrime());
-    QVERIFY(Integerc((unsigned char)7).isPrime());
-    QVERIFY(Integerc((unsigned char)11).isPrime());
-    QVERIFY(Integerc((unsigned char)13).isPrime());
-    QVERIFY(Integerc((unsigned char)17).isPrime());
-    QVERIFY(Integerc((unsigned char)19).isPrime());
-    QVERIFY(Integerc((unsigned char)23).isPrime());
-    QVERIFY(Integerc((unsigned char)29).isPrime());
-    QVERIFY(Integerc((unsigned char)31).isPrime());
-    QVERIFY(Integerll("4113101149215104800030529537915953170486139623539759933135949994882770404074832568499").isPrime(1));
+    QVERIFY((2_z).isPrime());
+    QVERIFY(!(4_z).isPrime());
+    QVERIFY((3_z).isPrime());
+    QVERIFY((5_z).isPrime());
+    QVERIFY((7_z).isPrime());
+    QVERIFY((11_z).isPrime());
+    QVERIFY((13_z).isPrime());
+    QVERIFY((17_z).isPrime());
+    QVERIFY((19_z).isPrime());
+    QVERIFY((23_z).isPrime());
+    QVERIFY((29_z).isPrime());
+    QVERIFY((31_z).isPrime());
+    QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime());
 }
 
 void TestInteger::testShift()

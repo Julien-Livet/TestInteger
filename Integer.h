@@ -688,12 +688,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             }
 
-            assert(abs() < rhs.abs());
-
 #ifdef USING_GMP
             if (lhs > 0 && rhs > 0)
                 assert(*this == mpz_class{lhs.template cast<mpz_class>() % rhs.template cast<mpz_class>()});
 #endif
+
+            assert(abs() < rhs.abs());
 
             return *this;
         }
@@ -2342,9 +2342,11 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
     {
         auto qr{computeQr(dividend, -divisor)};
 
+        qr.first = -qr.first;
+
         if (qr.second)
         {
-            qr.first = -qr.first - 1;
+            qr.first -= 1;
             qr.second += divisor;
         }
 
@@ -2354,8 +2356,13 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
     {
         auto qr{computeQr(-dividend, divisor)};
 
-        qr.first = -qr.first - 1;
-        qr.second = divisor - qr.second;
+        qr.first = -qr.first;
+
+        if (qr.second)
+        {
+            qr.first -= 1;
+            qr.second = divisor - qr.second;
+        }
 
         return qr;
     }

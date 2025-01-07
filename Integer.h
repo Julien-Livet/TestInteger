@@ -1482,57 +1482,25 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             };
 
-            auto modulo{[&redmulmod] (Integer const& base, Integer e, Integer const& m) -> Integer
+            auto modulo{[&redmulmod] (Integer const& base, Integer e, Integer const& m,
+                                      Integer const& R, Integer const& m_, Integer const& R2modm) -> Integer
                 {
                     Integer x(1);
                     auto y{base};
-
-                    Integer R(2);
-
-                    while (R <= m)
-                        R <<= 1;
-
-                    if (!(m & 1))
-                        ++R;
-
-                    while (!m.isCoprime(R))
-                    {
-                        if (!(m & 1))
-                            --R;
-
-                        R <<= 1;
-
-                        if (!(m & 1))
-                            ++R;
-                    }
-
-                    Integer R_, m_;
-
-                    auto const d(gcdExtended(R, -m, R_, m_));
-
-                    assert(R * R_ - m * m_ == d);
-
-                    if (d == -1)
-                    {
-                        R_ = -R;
-                        m_ = -m_;
-                    }
-
-                    auto const R2modn((R * R) % m);
 
                     while (e > 0)
                     {
                         if (e & 1)
                         {
                             auto const x_(x);
-                            x = redmulmod(x, y, m, R, m_, R2modn);
+                            x = redmulmod(x, y, m, R, m_, R2modm);
                             while (x < 0)
                                 x += m;
                             assert(x == (x_ * y) % m);
                         }
 
                         auto const y_(y);
-                        y = redmulmod(y, y, m, R, m_, R2modn);
+                        y = redmulmod(y, y, m, R, m_, R2modm);
                         while (y < 0)
                             y += m;
                         assert(y == (y_ * y_) % m);
@@ -1546,6 +1514,41 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             std::random_device rd;
             auto const number(*this - 1);
 
+            auto const& m(*this);
+
+            Integer R(2);
+
+            while (R <= m)
+                R <<= 1;
+
+            if (!(m & 1))
+                ++R;
+
+            while (!m.isCoprime(R))
+            {
+                if (!(m & 1))
+                    --R;
+
+                R <<= 1;
+
+                if (!(m & 1))
+                    ++R;
+            }
+
+            Integer R_, m_;
+
+            auto const d(gcdExtended(R, -m, R_, m_));
+
+            assert(R * R_ - m * m_ == d);
+
+            if (d == -1)
+            {
+                R_ = -R;
+                m_ = -m_;
+            }
+
+            auto const R2modm((R * R) % m);
+
             for (size_t i{0}; i < reps; ++i)
             {
                 auto a(*this);
@@ -1554,7 +1557,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 a = a % number + 1;
 
                 auto temp{s};
-                auto mod{modulo(a, temp, *this)};
+                auto mod{modulo(a, temp, *this, R, m_, R2modm)};
 
                 while (temp != number && !mod && mod != number)
                 {
@@ -2129,10 +2132,20 @@ CONSTEXPR Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
     if (a < b)
         return gcd(b, a);
 
+    if (!a)
+        return b;
+
     if (!b)
         return a;
 
-    return gcd(b, a % b);
+    if (a.isEven() && b.isEven())
+        return 2 * gcd(a >> 1, b >> 1);
+    else if (a.isOdd() && b.isEven())
+        return gcd(a, b >> 1);
+    else if (a.isEven() && b.isOdd())
+        return gcd(a >> 1, b);
+    else //if (a.isOdd() && b.isOdd())
+        return gcd((a - b) >> 1, b);
 }
 
 template <typename T, typename S>

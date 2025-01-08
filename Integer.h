@@ -327,12 +327,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             {
                 if (isPositive_ && other.isPositive_)
                 {
-                    if (!(other & 1))
-                    {
-                        *this <<= 1;
-                        *this *= (rhs >> 1);
-                    }
-                    else if (this->template fits<longest_type>() && other.template fits<longest_type>())
+                    if (this->template fits<longest_type>() && other.template fits<longest_type>())
                     {
                         auto const a{this->template cast<longest_type>()};
                         auto const b{other.template cast<longest_type>()};
@@ -397,6 +392,20 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                             //xy = z2 * 2^(2 * m) + z1 * 2^m + z0
                             *this = z0 + (z1 << m) + (z2 << 2 * m);
                         }
+                    }
+                    else if (!(rhs & 1))
+                    {
+                        auto r(rhs);
+                        Integer shift(0);
+
+                        while (!(r & 1))
+                        {
+                            r >>= 1;
+                            ++shift;
+                        }
+
+                        *this <<= shift;
+                        *this *= r;
                     }
                     else
                     {
@@ -619,15 +628,24 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     *this = 0;
                 else if (isPositive_ && other.isPositive_)
                 {
-                    if (!(other & 1))
-                    {
-                        *this >>= 1;
-                        *this /= (rhs >> 1);
-                    }
-                    else if (this->template fits<longest_type>() && other.template fits<longest_type>())
+                    if (this->template fits<longest_type>() && other.template fits<longest_type>())
                         *this = this->template cast<longest_type>() / other.template cast<longest_type>();
+                    else if (!(rhs & 1))
+                    {
+                        auto r(rhs);
+                        Integer shift(0);
+
+                        while (!(r & 1))
+                        {
+                            r >>= 1;
+                            ++shift;
+                        }
+
+                        *this >>= shift;
+                        *this /= r;
+                    }
                     else
-                        *this = computeQuotient(*this, other);
+                        *this = computeQuotientBinary(*this, other);
                 }
                 else
                 {
@@ -671,7 +689,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     }
                     else
                     {
-                        auto const qr{computeQr(*this, other)};
+                        auto const qr{computeQrBinary(*this, other)};
 
                         assert(*this == qr.first * rhs + qr.second);
 
@@ -680,7 +698,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
                 else
                 {
-                    auto const qr{computeQr(*this, other)};
+                    auto const qr{computeQrBinary(*this, other)};
 
                     assert(*this == qr.first * rhs + qr.second);
 
@@ -2695,6 +2713,103 @@ CONSTEXPR Integer<T> sqrt(Integer<T> const& n)
     }
 
     return res;
+}
+
+template <typename T>
+CONSTEXPR Integer<T> computeQuotientBinary(Integer<T> dividend, Integer<T> const& divisor)
+{
+    if (!divisor)
+        return Integer<T>::nan();
+    else if (!dividend)
+        return dividend;
+    else if (dividend < 0 && divisor > 0)
+        return -computeQuotientBinary(-dividend, divisor);
+    else if (dividend > 0 && divisor < 0)
+        return -computeQuotientBinary(dividend, -divisor);
+    else if (dividend < 0 && divisor < 0)
+        return computeQuotientBinary(-dividend, -divisor);
+
+    Integer<T> quotient(0);
+    auto tempDivisor(divisor);
+    Integer<T> bit(1);
+
+    while (dividend >= (tempDivisor << 1))
+    {
+        tempDivisor <<= 1;
+        bit <<= 1;
+    }
+
+    while (bit >= 1)
+    {
+        if (dividend >= tempDivisor)
+        {
+            dividend -= tempDivisor;
+            quotient += bit;
+        }
+
+        tempDivisor >>= 1;
+        bit >>= 1;
+    }
+
+    return quotient;
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBinary(Integer<T> const& dividend, S const& divisor)
+{
+    return computeQuotientBinary(dividend, Integer<T>(divisor));
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBinary(S const& dividend, Integer<T> const& divisor)
+{
+    return computeQuotientBinary(Integer<T>(dividend), divisor);
+}
+
+template <typename T>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(Integer<T> const& dividend, Integer<T> const& divisor)
+{
+    std::pair<Integer<T>, Integer<T> > qr{computeQuotientBinary(dividend, divisor), Integer<T>(0)};
+    qr.second = dividend.abs() - qr.first.abs() * divisor.abs();
+
+    if (dividend < 0 && divisor < 0)
+    {
+        if (qr.second)
+        {
+            ++qr.first;
+            qr.second += divisor;
+        }
+    }
+    else if (dividend > 0 && divisor < 0)
+    {
+        if (qr.second)
+        {
+            qr.first -= 1;
+            qr.second += divisor;
+        }
+    }
+    else if (dividend < 0 && divisor > 0)
+    {
+        if (qr.second)
+        {
+            qr.first -= 1;
+            qr.second = divisor - qr.second;
+        }
+    }
+
+    return qr;
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(Integer<T> const& dividend, S const& divisor)
+{
+    return computeQrBinary(dividend, Integer<T>(divisor));
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(S const& dividend, Integer<T> const& divisor)
+{
+    return computeQrBinary(Integer<T>(dividend), divisor);
 }
 
 using Integerc = Integer<unsigned char>;

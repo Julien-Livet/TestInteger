@@ -778,8 +778,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 {
                     *it >>= shift;
 
-                    if (it != bits_.rend() - 1 && (*(it + 1) & ((1 << shift) - 1)))
-                        *it |= (*(it +  1) & ((1 << shift) - 1)) << (sizeof(T) * 8 - shift);
+                    if (it != bits_.rend() - 1 && (*(it + 1) & ((longest_type{1} << shift) - 1)))
+                        *it |= (*(it +  1) & ((longest_type{1} << shift) - 1)) << (sizeof(T) * 8 - shift);
                 }
             }
 

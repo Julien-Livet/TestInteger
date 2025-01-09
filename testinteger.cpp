@@ -140,7 +140,7 @@ void TestInteger::testChar()
 }
 */
 void TestInteger::testDivision()
-{/*
+{
     QVERIFY(Integerc(12) / 4 == 3);
     QVERIFY(Integerc(2) / 3 == 0);
     QVERIFY(Integerc(3) / 2 == 1);
@@ -151,18 +151,17 @@ void TestInteger::testDivision()
     QVERIFY(Integerc(6) / 2 == 3);
     QVERIFY(Integerc(6) / 3 == 2);
     QVERIFY((Integerc{122, 17, 200,43} / Integerc{23, 117} == Integerc{5, 52, 54}));
-*//*
+
     {
         Integerll const a("0b10101011110100110001100110101111100010110000011001001100100101110100111011100110100100101110001010001100110111011001101010011011000010111111001010110101010");
         Integerll const b("0b100010001011011011011011001110101100100110101011101100101000011011111110010011010101101010101011111110010101010");
 
         auto const qr{computeQrByDivision(a, b)};
 
-        std::cout << "q " << Integerll{22110129672729ull}.toString(2) << std::endl;
         QVERIFY((qr.first == Integerll{22110129672729ull}));
         QVERIFY((qr.second == Integerll{19184386057769ull, 9219185875676460304ull}));
     }
-*/
+
     {
         Integerc const a{122, 17, 200,43};
         Integerc const b{23, 117};
@@ -172,7 +171,7 @@ void TestInteger::testDivision()
         QVERIFY((qr.first == Integerc{5, 52, 54}));
         QVERIFY((qr.second == Integerc{17, 125}));
     }
-/*
+
     {
         auto const qr1{computeQr(Integerc(10), 3)};
         QVERIFY(qr1.first == 3);
@@ -238,7 +237,7 @@ void TestInteger::testDivision()
         mpz_class const n{(mpz_class{a} * mpz_class{b}) / c};
         QVERIFY((Integerc(a) * b) / c == n.get_str());
     }
-#endif*/
+#endif
 }
 /*
 void TestInteger::testEqualities()

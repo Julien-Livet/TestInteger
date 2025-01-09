@@ -31,7 +31,7 @@
 #include <gmpxx.h>
 #endif
 
-using longest_type = unsigned short;//using longest_type = uintmax_t;
+using longest_type = uintmax_t;
 
 template <typename T, typename Enable = void>
 class Integer;
@@ -680,7 +680,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         *this /= r;
                     }
                     else
-                        *this = computeQuotientBinary(*this, other);
+                        *this = computeQuotientByDivision(*this, other);
                 }
                 else
                 {
@@ -724,7 +724,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     }
                     else
                     {
-                        auto const qr{computeQrBinary(*this, other)};
+                        auto const qr{computeQrByDivision(*this, other)};
 
                         assert(*this == qr.first * rhs + qr.second);
 
@@ -733,7 +733,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
                 else
                 {
-                    auto const qr{computeQrBinary(*this, other)};
+                    auto const qr{computeQrByDivision(*this, other)};
 
                     assert(*this == qr.first * rhs + qr.second);
 
@@ -801,6 +801,13 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
             auto const n(other / s);
+
+            if (bits_.size() < n.template cast<longest_type>())
+            {
+                bits_ = std::vector<T>{T{0}};
+
+                return *this;
+            }
 
             bits_.resize(bits_.size() - n.template cast<longest_type>());
 
@@ -2955,14 +2962,27 @@ CONSTEXPR Integer<T> computeQuotientByDivision(Integer<T> dividend, Integer<T> c
         return Integer<T>::nan();
     else if (divisor.abs() > dividend.abs())
         return Integer<T>{0};
-    else if (dividend < 0 && divisor > 0)
-        return -computeQuotientByDivision(-dividend, divisor);
+
+    std::pair<Integer<T>, Integer<T> > qr;
+    qr = computeQrByDivision(dividend, divisor);
+
+    if (dividend < 0 && divisor < 0)
+    {
+        if (qr.second)
+            --qr.first;
+    }
     else if (dividend > 0 && divisor < 0)
-        return -computeQuotientByDivision(dividend, -divisor);
-    else if (dividend < 0 && divisor < 0)
-        return computeQuotientByDivision(-dividend, -divisor);
-/**
-    return quotient;**/
+    {
+        if (qr.second)
+            ++qr.first;
+    }
+    else if (dividend < 0 && divisor > 0)
+    {
+        if (qr.second)
+            ++qr.first;
+    }
+
+    return qr.first;
 }
 
 template <typename T, typename S>
@@ -3012,7 +3032,7 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrByDivision(Integer<T> cons
 
         if (qr.second)
         {
-            qr.first -= 1;
+            --qr.first;
             qr.second += divisor;
         }
 
@@ -3026,7 +3046,7 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrByDivision(Integer<T> cons
 
         if (qr.second)
         {
-            qr.first -= 1;
+            --qr.first;
             qr.second = divisor - qr.second;
         }
 

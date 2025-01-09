@@ -766,6 +766,13 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             auto const s{static_cast<unsigned short>(sizeof(T) * 8)};
             auto const n(other / s);
 
+            if (bits_.size() < n.template cast<longest_type>())
+            {
+                bits_ = std::vector<T>{T{0}};
+
+                return *this;
+            }
+
             bits_.resize(bits_.size() - n.template cast<longest_type>());
 
             other -= n * s;

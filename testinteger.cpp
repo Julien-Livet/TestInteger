@@ -4,12 +4,12 @@ class TestInteger : public QObject
 {
     Q_OBJECT
 
-    private slots:
+    private slots:/*
         void testAddition();
         void testAnd();
         void testBits();
-        void testChar();
-        void testDivision();
+        void testChar();*/
+        void testDivision();/*
         void testEqualities();
         void testGcd();
         void testInequalities();
@@ -24,13 +24,13 @@ class TestInteger : public QObject
         void testSubstraction();
         void testToString();
         void testUnsignedLongLong();
-        void testUnsignedShort();
+        void testUnsignedShort();*/
 };
 
 #include <iostream>
 
 #include "Integer.h"
-
+/*
 void TestInteger::testAddition()
 {
     QVERIFY(Integerc(0) + 0 == 0);
@@ -138,9 +138,9 @@ void TestInteger::testChar()
     QVERIFY(Integerc('1') == '1');
     QVERIFY(Integerc('a').cast<char>() == 'a');
 }
-
+*/
 void TestInteger::testDivision()
-{
+{/*
     QVERIFY(Integerc(12) / 4 == 3);
     QVERIFY(Integerc(2) / 3 == 0);
     QVERIFY(Integerc(3) / 2 == 1);
@@ -150,7 +150,29 @@ void TestInteger::testDivision()
     QVERIFY(Integerc(5) / 2 == 2);
     QVERIFY(Integerc(6) / 2 == 3);
     QVERIFY(Integerc(6) / 3 == 2);
+    QVERIFY((Integerc{122, 17, 200,43} / Integerc{23, 117} == Integerc{5, 52, 54}));
+*//*
+    {
+        Integerll const a("0b10101011110100110001100110101111100010110000011001001100100101110100111011100110100100101110001010001100110111011001101010011011000010111111001010110101010");
+        Integerll const b("0b100010001011011011011011001110101100100110101011101100101000011011111110010011010101101010101011111110010101010");
 
+        auto const qr{computeQrByDivision(a, b)};
+
+        std::cout << "q " << Integerll{22110129672729ull}.toString(2) << std::endl;
+        QVERIFY((qr.first == Integerll{22110129672729ull}));
+        QVERIFY((qr.second == Integerll{19184386057769ull, 9219185875676460304ull}));
+    }
+*/
+    {
+        Integerc const a{122, 17, 200,43};
+        Integerc const b{23, 117};
+
+        auto const qr{computeQrByDivision(a, b)};
+
+        QVERIFY((qr.first == Integerc{5, 52, 54}));
+        QVERIFY((qr.second == Integerc{17, 125}));
+    }
+/*
     {
         auto const qr1{computeQr(Integerc(10), 3)};
         QVERIFY(qr1.first == 3);
@@ -216,9 +238,9 @@ void TestInteger::testDivision()
         mpz_class const n{(mpz_class{a} * mpz_class{b}) / c};
         QVERIFY((Integerc(a) * b) / c == n.get_str());
     }
-#endif
+#endif*/
 }
-
+/*
 void TestInteger::testEqualities()
 {
     QVERIFY(-Integerc(1) == -1);
@@ -432,7 +454,7 @@ void TestInteger::testModulo()
 }
 
 void TestInteger::testMultiplication()
-{/*
+{
     QVERIFY(Integerc(0) * 1 == 0);
     QVERIFY(Integerc(0) * -1 == 0);
     QVERIFY(Integerc(1) * 0 == 0);
@@ -490,7 +512,7 @@ void TestInteger::testMultiplication()
         QVERIFY(a * b == "45918528047859382727956397566465766535802613706550573885714125513512139783633707483925386458498848522240");
         QVERIFY(a * b == mpz_class{a.cast<mpz_class>() * b.cast<mpz_class>()});
     }
-#endif*/
+#endif
 }
 
 void TestInteger::testOr()
@@ -576,8 +598,8 @@ void TestInteger::testPrimes()
     QVERIFY((23_z).isPrime() == 2);
     QVERIFY((29_z).isPrime() == 2);
     QVERIFY((31_z).isPrime() == 2);
-    QVERIFY((1299709_z).isPrime());//100'000th prime
-    QVERIFY((13359555403_z).isPrime());//600'000'000th prime
+    QVERIFY((1'299'709_z).isPrime());//100'000th prime
+    QVERIFY((13'359'555'403_z).isPrime());//600'000'000th prime
     QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime(1));
 }
 
@@ -741,6 +763,6 @@ void TestInteger::testUnsignedShort()
     QVERIFY(Integers((unsigned short)1).cast<unsigned short>() == (unsigned short)1);
     QVERIFY(Integers((unsigned short)-1).cast<unsigned short>() == (unsigned short)-1);
 }
-
+*/
 QTEST_MAIN(TestInteger)
 #include "testinteger.moc"

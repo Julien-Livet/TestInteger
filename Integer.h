@@ -367,7 +367,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                             *this = ab;
                         else
                         {
-                            auto number{[] (T n) -> size_t
+                            auto number{[] (longest_type n) -> size_t
                                         {
                                             size_t number{0};
 
@@ -382,19 +382,14 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                             };
 
                             //Karatsuba algorithm
-                            size_t n{std::max(number(bits_.back()), number(other.bits_.back()))};
+                            size_t n{std::max(number(a), number(b))};
                             if (n % 2)
                                 ++n;
                             size_t const m{n / 2};
-                            Integer x0, x1, y0, y1;
-                            x0.bits_ = std::vector<T>(1, T{0});
-                            x0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & bits_.back();
-                            x1.bits_ = std::vector<T>(1, T{0});
-                            x1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & bits_.back()) >> m;
-                            y0.bits_ = std::vector<T>(1, T{0});
-                            y0.bits_.back() = (static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) & other.bits_.back();
-                            y1.bits_ = std::vector<T>(1, T{0});
-                            y1.bits_.back() = (((static_cast<T>(~T{0}) >> (sizeof(T) * 8 - m)) << m) & other.bits_.back()) >> m;
+                            Integer const x0((static_cast<longest_type>(~longest_type{0}) >> (sizeof(longest_type) * 8 - m)) & a);
+                            Integer const x1((((static_cast<longest_type>(~longest_type{0}) >> (sizeof(longest_type) * 8 - m)) << m) & a) >> m);
+                            Integer const y0((static_cast<longest_type>(~longest_type{0}) >> (sizeof(longest_type) * 8 - m)) & b);
+                            Integer const y1((((static_cast<longest_type>(~longest_type{0}) >> (sizeof(longest_type) * 8 - m)) << m) & b) >> m);
 
                             assert(*this == ((x1 << m) | x0));
                             assert(other == ((y1 << m) | y0));

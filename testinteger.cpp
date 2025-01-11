@@ -150,6 +150,38 @@ void TestInteger::testDivision()
     QVERIFY(Integerc(5) / 2 == 2);
     QVERIFY(Integerc(6) / 2 == 3);
     QVERIFY(Integerc(6) / 3 == 2);
+    QVERIFY((Integerc{122, 17, 200,43} / Integerc{23, 117} == Integerc{5, 52, 54}));
+
+    {
+        Integer32 const a{0, 561453, 13205, 1564};
+        Integer32 const b{1698, 721};
+
+        //auto const qr{computeQrBinary(a, b)};
+        auto const qr{computeQrBurnikelZiegler(a, b)};
+
+        QVERIFY((qr.first == Integer32{330, 2815252282}));
+        QVERIFY((qr.second == Integer32{414, 1722637250}));
+    }
+
+    {
+        Integerll const a("0b10101011110100110001100110101111100010110000011001001100100101110100111011100110100100101110001010001100110111011001101010011011000010111111001010110101010");
+        Integerll const b("0b100010001011011011011011001110101100100110101011101100101000011011111110010011010101101010101011111110010101010");
+
+        auto const qr{computeQrBurnikelZiegler(a, b)};
+
+        QVERIFY((qr.first == Integerll{22110129672729ull}));
+        QVERIFY((qr.second == Integerll{19184386057769ull, 9219185875676460304ull}));
+    }
+
+    {
+        Integerc const a{122, 17, 200,43};
+        Integerc const b{23, 117};
+
+        auto const qr{computeQrBurnikelZiegler(a, b)};
+
+        QVERIFY((qr.first == Integerc{5, 52, 54}));
+        QVERIFY((qr.second == Integerc{17, 125}));
+    }
 
     {
         auto const qr1{computeQr(Integerc(10), 3)};
@@ -432,7 +464,7 @@ void TestInteger::testModulo()
 }
 
 void TestInteger::testMultiplication()
-{/*
+{
     QVERIFY(Integerc(0) * 1 == 0);
     QVERIFY(Integerc(0) * -1 == 0);
     QVERIFY(Integerc(1) * 0 == 0);
@@ -490,7 +522,14 @@ void TestInteger::testMultiplication()
         QVERIFY(a * b == "45918528047859382727956397566465766535802613706550573885714125513512139783633707483925386458498848522240");
         QVERIFY(a * b == mpz_class{a.cast<mpz_class>() * b.cast<mpz_class>()});
     }
-#endif*/
+
+    {
+        Integer32 const a{330, 2815252282};
+        Integer32 const b{1698, 721};
+
+        QVERIFY(a * b == mpz_class{a.cast<mpz_class>() * b.cast<mpz_class>()});
+    }
+#endif
 }
 
 void TestInteger::testOr()
@@ -576,9 +615,9 @@ void TestInteger::testPrimes()
     QVERIFY((23_z).isPrime() == 2);
     QVERIFY((29_z).isPrime() == 2);
     QVERIFY((31_z).isPrime() == 2);
-    QVERIFY((1299709_z).isPrime());//100'000th prime
-    QVERIFY((13359555403_z).isPrime());//600'000'000th prime
-    QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime(1));
+    QVERIFY((1'299'709_z).isPrime());//100'000th prime
+    QVERIFY((13'359'555'403_z).isPrime());//600'000'000th prime
+    QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime());
 }
 
 void TestInteger::testShift()
@@ -667,7 +706,7 @@ void TestInteger::testSubstraction()
 void TestInteger::testToString()
 {
     QVERIFY(Integerc('\2').toString(2) == "0b00000010");
-    QVERIFY(Integerc((int)2).toString(2) == "0b00000000000000000000000000000010");
+    QVERIFY(Integerc((int)2).toString(2) == "0b00000010");
     QVERIFY((Integerc('\2') >> 1).toString(2) == "0b00000001");
     QVERIFY((Integerc('\2') >> 2).toString(2) == "0b00000000");
     QVERIFY((Integerc((unsigned char)255) << 1).toString(2) == "0b0000000111111110");
@@ -699,7 +738,7 @@ void TestInteger::testUnsignedLongLong()
 
         n -= 1;
 
-        QVERIFY(n.bits().size() == 2 && n.bits()[0] == 0 && n.bits()[1] == ~0ull);
+        QVERIFY(n.bits().size() == 1 && n.bits().back() == ~0ull);
     }
 
     {

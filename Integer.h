@@ -66,12 +66,16 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                 std::reverse(bits_.begin(), bits_.end());
             }
+
+            adjust();
         }
 
         CONSTEXPR explicit Integer(std::vector<T> const& bits, bool isPositive = true) : isPositive_{isPositive}, bits_{bits}
         {
             if (bits_.empty())
                 bits_.emplace_back(T{0});
+
+            adjust();
         }
 
         template <size_t N>
@@ -84,6 +88,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             if (bits_.empty())
                 bits_.emplace_back(T{0});
+
+            adjust();
         }
 
         template <class InputIt>
@@ -91,6 +97,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             if (bits_.empty())
                 bits_.emplace_back(T{0});
+
+            adjust();
         }
 
 #ifdef USING_GMP
@@ -99,14 +107,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         }
 #endif
 
-        CONSTEXPR explicit Integer(char const* n, size_t base = 10) : Integer(std::string{n}, base)
+        CONSTEXPR explicit Integer(char const* n, size_t base = 0) : Integer(std::string{n}, base)
         {
         }
 
-        CONSTEXPR explicit Integer(std::string n, size_t base = 10)
+        CONSTEXPR explicit Integer(std::string n, size_t base = 0)
         {
-            assert(2 <= base && base <= 62);
-
             n.erase(std::remove_if(n.begin(), n.end(), isspace), n.end());
             n.erase(std::remove(n.begin(), n.end(), '\''), n.end());
 
@@ -117,6 +123,24 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 isPositive_ = false;
                 ++it;
             }
+
+            if (!base)
+            {
+                auto s{std::string{it, n.end()}.substr(0, 2)};
+                std::transform(s.begin(), s.end(), s.begin(),
+                               [] (unsigned char c) { return std::tolower(c); });
+
+                if (s[0] == 'b' || s == "0b")
+                    base = 2;
+                else if (s[0] == 'o' || s == "0o")
+                    base = 8;
+                else if (s[0] == 'x' || s == "0x")
+                    base = 16;
+                else
+                    base = 10;
+            }
+
+            assert(2 <= base && base <= 62);
 
             std::string str{it, n.end()};
             std::transform(str.begin(), str.end(), str.begin(),
@@ -134,7 +158,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 {
                     if (*it == 'b' || *it == 'B')
                         ++it;
-                    else if (n.substr(0, 2) == "0b" || n.substr(0, 2) == "0B")
+                    else if (std::string(it, n.end()).substr(0, 2) == "0b"
+                             || std::string(it, n.end()).substr(0, 2) == "0B")
                         it += 2;
 
                     while (it != n.end())
@@ -159,7 +184,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 {
                     if (*it == 'o' || *it == 'O')
                         ++it;
-                    else if (n.substr(0, 2) == "0o" || n.substr(0, 2) == "0O")
+                    else if (std::string(it, n.end()).substr(0, 2) == "0o"
+                             || std::string(it, n.end()).substr(0, 2) == "0O")
                         it += 2;
 
                     auto otherIt{n.rbegin()};
@@ -217,7 +243,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 {
                     if (*it == 'x' || *it == 'X')
                         ++it;
-                    else if (n.substr(0, 2) == "0x" || n.substr(0, 2) == "0X")
+                    else if (std::string(it, n.end()).substr(0, 2) == "0x"
+                             || std::string(it, n.end()).substr(0, 2) == "0X")
                         it += 2;
 
                     auto otherIt{n.rbegin()};
@@ -268,6 +295,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                 isPositive_ = isPositive;
             }
+
+            adjust();
         }
 
         template <typename S>
@@ -294,6 +323,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             for (size_t i{0}; i < bits_.size(); ++i)
                 bits_[i] = ~bits_[i];
+
+            if (autoAdjust_)
+                adjust();
         }
 
         CONSTEXPR Integer& operator*=(Integer const& other)
@@ -474,8 +506,6 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         w2.bits_ = std::vector<T>(z2.bits_.size() + 2 * m, T{0});
                         std::copy(z2.bits_.rbegin(), z2.bits_.rend(), w2.bits_.rbegin() + 2 * m);
                         *this += w2;
-
-                        adjust();
                     }
                 }
                 else
@@ -484,6 +514,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     *this = -*this;
                 }
             }
+
+            if (autoAdjust_)
+                adjust();
 
 #ifdef USING_GMP
             assert(*this == mpz_class{lhs.template cast<mpz_class>() * rhs.template cast<mpz_class>()});
@@ -585,16 +618,20 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             }
 
+            if (autoAdjust_)
+                adjust();
+
             return *this;
         }
 
         CONSTEXPR Integer& operator-=(Integer const& other)
         {
-            auto const n(*this);
+            auto const lhs(*this);
+            auto const rhs(other);
 
             *this += -other;
 
-            assert(n == *this + other);
+            assert(lhs == *this + rhs);
 
             return *this;
         }
@@ -640,7 +677,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         *this /= r;
                     }
                     else
-                        *this = computeQuotientBinary(*this, other);
+                        *this = computeQuotientBurnikelZiegler(*this, other);
                 }
                 else
                 {
@@ -684,7 +721,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     }
                     else
                     {
-                        auto const qr{computeQrBinary(*this, other)};
+                        auto const qr{computeQrBurnikelZiegler(*this, other)};
 
                         assert(*this == qr.first * rhs + qr.second);
 
@@ -693,7 +730,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
                 else
                 {
-                    auto const qr{computeQrBinary(*this, other)};
+                    auto const qr{computeQrBurnikelZiegler(*this, other)};
 
                     assert(*this == qr.first * rhs + qr.second);
 
@@ -746,7 +783,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
             }
 
-            adjust();
+            if (autoAdjust_)
+                adjust();
 
             return *this;
         }
@@ -788,7 +826,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             if (bits_.empty())
                 bits_.emplace_back(T{0});
 
-            adjust();
+            if (autoAdjust_)
+                adjust();
 
             return *this;
         }
@@ -1014,6 +1053,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             bits_ = result;
 
+            if (autoAdjust_)
+                adjust();
+
             return *this;
         }
 
@@ -1029,6 +1071,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a | b; });
 
             bits_ = result;
+
+            if (autoAdjust_)
+                adjust();
 
             return *this;
         }
@@ -1063,6 +1108,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             std::transform(v1.begin(), v1.end(), v2.begin(), result.begin(), [](T const& a, T const& b) { return a ^ b; });
 
             bits_ = result;
+
+            if (autoAdjust_)
+                adjust();
 
             return *this;
         }
@@ -1698,6 +1746,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             }
 
             bits_[bits_.size() - 1 - n] = bits;
+
+            if (autoAdjust)
+                adjust();
         }
 
         template <size_t N>
@@ -1705,6 +1756,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             for (size_t i{0}; i < bits.size(); ++i)
                 setBit(n + i, bits[i]);
+
+            if (autoAdjust)
+                adjust();
         }
 
         CONSTEXPR size_t count() const noexcept
@@ -1725,9 +1779,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             return count;
         }
 
-        CONSTEXPR size_t number() const noexcept
+        CONSTEXPR Integer<T> number() const noexcept
         {
-            size_t number{0};
+            Integer<T> number(0);
 
             auto it{bits_.begin()};
 
@@ -1853,12 +1907,33 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             return gcd(*this, other) == 1;
         }
 
+        CONSTEXPR bool autoAdjust() const noexcept
+        {
+            return autoAdjust_;
+        }
+
+        CONSTEXPR void setAutoAdjust(bool autoAdjust) noexcept
+        {
+            autoAdjust_ = autoAdjust;
+        }
+
     private:
         bool isPositive_{true};
         std::vector<T> bits_;
         bool isNan_{false};
         bool isInfinity_{false};
+        bool autoAdjust_{true};
 };
+
+using Integerc = Integer<unsigned char>;
+using Integers = Integer<unsigned short>;
+using Integeri = Integer<unsigned int>;
+using Integerl = Integer<unsigned long>;
+using Integerll = Integer<unsigned long long>;
+using Integer8 = Integer<uint8_t>;
+using Integer16 = Integer<uint16_t>;
+using Integer32 = Integer<uint32_t>;
+using Integer64 = Integer<uint64_t>;
 
 #ifdef USING_GMP
 template <>
@@ -1910,7 +1985,43 @@ mpz_class Integer<unsigned long long>::cast<mpz_class>() const noexcept
 
     return mpz_class{s, 2};
 }
+
 #endif
+
+template <>
+template <>
+std::string Integer<unsigned char>::cast<std::string>() const noexcept
+{
+    return toString();
+}
+
+template <>
+template <>
+std::string Integer<unsigned short>::cast<std::string>() const noexcept
+{
+    return toString();
+}
+
+template <>
+template <>
+std::string Integer<unsigned int>::cast<std::string>() const noexcept
+{
+    return toString();
+}
+
+template <>
+template <>
+std::string Integer<unsigned long>::cast<std::string>() const noexcept
+{
+    return toString();
+}
+
+template <>
+template <>
+std::string Integer<unsigned long long>::cast<std::string>() const noexcept
+{
+    return toString();
+}
 
 template <typename T>
 CONSTEXPR Integer<T> operator*(Integer<T> lhs, Integer<T> const& rhs)
@@ -2396,6 +2507,12 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
         return {Integer<T>::nan(), Integer<T>::nan()};
     else if (!dividend)
         return {Integer<T>{0}, Integer<T>{0}};
+    else if (dividend.isNan())
+        return {dividend, dividend};
+    else if (divisor.isNan())
+        return {divisor, divisor};
+    else if (dividend.isInfinity() || divisor.isInfinity())
+        return {Integer<T>::nan(), Integer<T>::nan()};
     else if (divisor.abs() > dividend.abs())
         return {Integer<T>{0}, dividend};
     else if (dividend < 0 && divisor < 0)
@@ -2487,6 +2604,12 @@ CONSTEXPR Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
         return Integer<T>::nan();
     else if (!dividend)
         return Integer<T>{0};
+    else if (dividend.isNan())
+        return dividend;
+    else if (divisor.isNan())
+        return divisor;
+    else if (dividend.isInfinity() || divisor.isInfinity())
+        return Integer<T>::nan();
     else if (divisor.abs() > dividend.abs())
         return Integer<T>{0};
     else if (dividend < 0 && divisor < 0)
@@ -2723,7 +2846,15 @@ CONSTEXPR Integer<T> computeQuotientBinary(Integer<T> dividend, Integer<T> const
     if (!divisor)
         return Integer<T>::nan();
     else if (!dividend)
+        return Integer<T>{0};
+    else if (dividend.isNan())
         return dividend;
+    else if (divisor.isNan())
+        return divisor;
+    else if (dividend.isInfinity() || divisor.isInfinity())
+        return Integer<T>::nan();
+    else if (divisor.abs() > dividend.abs())
+        return Integer<T>{0};
     else if (dividend < 0 && divisor > 0)
         return -computeQuotientBinary(-dividend, divisor);
     else if (dividend > 0 && divisor < 0)
@@ -2814,11 +2945,285 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(S const& dividend, 
     return computeQrBinary(Integer<T>(dividend), divisor);
 }
 
-using Integerc = Integer<unsigned char>;
-using Integers = Integer<unsigned short>;
-using Integeri = Integer<unsigned int>;
-using Integerl = Integer<unsigned long>;
-using Integerll= Integer<unsigned long long>;
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrByDivision(Integer<T> const& dividend, S const& divisor)
+{
+    return computeQrByDivision(dividend, Integer<T>(divisor));
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrByDivision(S const& dividend, Integer<T> const& divisor)
+{
+    return computeQrByDivision(Integer<T>(dividend), divisor);
+}
+
+template <typename T>
+CONSTEXPR Integer<T> computeQuotientBurnikelZiegler(Integer<T> dividend, Integer<T> const& divisor)
+{
+    if (!divisor)
+        return Integer<T>::nan();
+    else if (!dividend)
+        return Integer<T>{0};
+    else if (dividend.isNan())
+        return dividend;
+    else if (divisor.isNan())
+        return divisor;
+    else if (dividend.isInfinity() || divisor.isInfinity())
+        return Integer<T>::nan();
+    else if (divisor.abs() > dividend.abs())
+        return Integer<T>{0};
+
+    std::pair<Integer<T>, Integer<T> > qr;
+    qr = computeQrBurnikelZiegler(dividend, divisor);
+
+    if (dividend < 0 && divisor < 0)
+    {
+        if (qr.second)
+            --qr.first;
+    }
+    else if (dividend > 0 && divisor < 0)
+    {
+        if (qr.second)
+            ++qr.first;
+    }
+    else if (dividend < 0 && divisor > 0)
+    {
+        if (qr.second)
+            ++qr.first;
+    }
+
+    return qr.first;
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBurnikelZiegler(Integer<T> const& dividend, S const& divisor)
+{
+    return computeQuotientBurnikelZiegler(dividend, Integer<T>(divisor));
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBurnikelZiegler(S const& dividend, Integer<T> const& divisor)
+{
+    return computeQuotientBurnikelZiegler(Integer<T>(dividend), divisor);
+}
+
+template <typename T>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T> const& dividend, Integer<T> const& divisor)
+{
+    if (!divisor)
+        return {Integer<T>::nan(), Integer<T>::nan()};
+    else if (!dividend)
+        return {Integer<T>{0}, Integer<T>{0}};
+    else if (dividend.isNan())
+        return {dividend, dividend};
+    else if (divisor.isNan())
+        return {divisor, divisor};
+    else if (dividend.isInfinity() || divisor.isInfinity())
+        return {Integer<T>::nan(), Integer<T>::nan()};
+    else if (divisor.abs() > dividend.abs())
+        return {Integer<T>{0}, dividend};
+    else if (divisor.abs() == 1)
+        return {divisor.sign() * dividend, Integer<T>(0)};
+    else if (dividend < 0 && divisor < 0)
+    {
+        auto qr{computeQrBurnikelZiegler(-dividend, -divisor)};
+
+        if (qr.second)
+        {
+            ++qr.first;
+            qr.second += divisor;
+        }
+
+        return qr;
+    }
+    else if (dividend > 0 && divisor < 0)
+    {
+        auto qr{computeQrBurnikelZiegler(dividend, -divisor)};
+
+        qr.first = -qr.first;
+
+        if (qr.second)
+        {
+            --qr.first;
+            qr.second += divisor;
+        }
+
+        return qr;
+    }
+    else if (dividend < 0 && divisor > 0)
+    {
+        auto qr{computeQrBurnikelZiegler(-dividend, divisor)};
+
+        qr.first = -qr.first;
+
+        if (qr.second)
+        {
+            --qr.first;
+            qr.second = divisor - qr.second;
+        }
+
+        return qr;
+    }
+
+    std::function<void(std::vector<Integer<T> >&, Integer<T> const&, Integer<T> const&,
+                       Integer<T> const&, Integer<T> const&)> inner1;
+
+    inner1 =
+    [&inner1] (std::vector<Integer<T> >& a_digits, Integer<T> const& x, Integer<T> const& L,
+               Integer<T> const& R, Integer<T> const& n) -> void
+    {
+        if (L + 1 == R)
+        {
+            a_digits[L] = x;
+            return;
+        }
+
+        auto const mid((L + R) >> 1);
+        auto const shift((mid - L) * n);
+        auto const upper(x >> shift);
+        auto const lower(x ^ (upper << shift));
+        inner1(a_digits, lower, L, mid, n);
+        inner1(a_digits, upper, mid, R, n);
+    };
+
+    auto _int2digits
+    {
+        [&inner1] (Integer<T> const& a, Integer<T> const& n) -> std::vector<Integer<T> >
+        {
+            assert(a >= 0);
+
+            std::vector<Integer<T> > a_digits((a.number() + n - 1).template cast<longest_type>() / n, Integer<T>(0));
+
+            if (a)
+                inner1(a_digits, a, Integer<T>(0), Integer<T>(a_digits.size()), n);
+
+            return a_digits;
+        }
+    };
+
+    std::function<Integer<T>(std::vector<Integer<T> > const&, Integer<T> const&,
+                             Integer<T> const&, Integer<T> const&)> inner2;
+
+    inner2 =
+    [&inner2] (std::vector<Integer<T> > const& digits, Integer<T> const& L,
+               Integer<T> const& R, Integer<T> const& n) -> Integer<T>
+    {
+        if (L + 1 == R)
+           return digits[L];
+
+        auto const mid((L + R) >> 1);
+        auto const shift((mid - L) * n);
+
+        return (inner2(digits, mid, R, n) << shift) + inner2(digits, L, mid, n);
+    };
+
+    auto _digits2int
+    {
+        [&inner2] (std::vector<Integer<T> > const& digits, Integer<T> const& n) -> Integer<T>
+        {
+            if (digits.empty())
+                return Integer<T>(0);
+
+            return inner2(digits, Integer<T>(0), Integer<T>(digits.size()), n);
+        }
+    };
+
+    std::function<std::pair<Integer<T>, Integer<T> >(Integer<T>, Integer<T>, Integer<T>)> _div2n1n;
+    std::function<std::pair<Integer<T>, Integer<T> >(Integer<T> const&, Integer<T> const&,
+                                                     Integer<T> const&, Integer<T> const&,
+                                                     Integer<T> const&, Integer<T> const&)> _div3n2n;
+
+    _div2n1n =
+    [&_div3n2n] (Integer<T> a, Integer<T> b, Integer<T> n) -> std::pair<Integer<T>, Integer<T> >
+    {
+        if (a.template fits<longest_type>() && b.template fits<longest_type>())
+            return {a / b, a % b};
+
+        auto pad(n & 1);
+
+        if (pad)
+        {
+            a <<= 1;
+            b <<= 1;
+            n += 1;
+        }
+
+        auto const half_n(n >> 1);
+        auto const mask((1 << half_n) - 1);
+        auto const b1(b >> half_n);
+        auto const b2(b & mask);
+        auto[q1, r] = _div3n2n(a >> n, (a >> half_n) & mask, b, b1, b2, half_n);
+        auto[q2, r2] = _div3n2n(r, a & mask, b, b1, b2, half_n);
+        r = r2;
+
+        if (pad)
+            r >>= 1;
+
+        return {q1 << half_n | q2, r};
+    };
+
+    _div3n2n =
+    [&_div2n1n] (Integer<T> const& a12, Integer<T> const& a3,
+                 Integer<T> const& b, Integer<T> const& b1,
+                 Integer<T> const& b2, Integer<T> const& n) -> std::pair<Integer<T>, Integer<T> >
+    {
+        Integer<T> q, r;
+
+        if (a12 >> n == b1)
+        {
+            q = (1 << n) - 1;
+            r = a12 - (b1 << n) + b1;
+        }
+        else
+        {
+            auto const p{_div2n1n(a12, b1, n)};
+            q = p.first;
+            r = p.second;
+        }
+
+        r = (r << n | a3) - q * b2;
+
+        while (r < 0)
+        {
+            --q;
+            r += b;
+        }
+
+        return {q, r};
+    };
+
+    auto const n{divisor.number()};
+    auto const a_digits(_int2digits(dividend, n));
+
+    Integer<T> r(0);
+    Integer<T> q(0);
+    std::vector<Integer<T> > q_digits;
+
+    for (auto it{a_digits.rbegin()}; it != a_digits.rend(); ++it)
+    {
+        auto[q_digit, r_] = _div2n1n((r << n) + *it, divisor, n);
+        r = r_;
+        q_digits.emplace_back(q_digit);
+    }
+
+    std::reverse(q_digits.begin(), q_digits.end());
+
+    q = _digits2int(q_digits, n);
+
+    return {q, r};
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T> const& dividend, S const& divisor)
+{
+    return computeQrBurnikelZiegler(dividend, Integer<T>(divisor));
+}
+
+template <typename T, typename S>
+CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(S const& dividend, Integer<T> const& divisor)
+{
+    return computeQrBurnikelZiegler(Integer<T>(dividend), divisor);
+}
 
 Integerc operator""_zc(char const* str)
 {
@@ -2843,6 +3248,26 @@ Integerl operator""_zl(char const* str)
 Integerll operator""_zll(char const* str)
 {
     return Integerll(str);
+}
+
+Integer8 operator""_z8(char const* str)
+{
+    return Integer8(str);
+}
+
+Integer16 operator""_z16(char const* str)
+{
+    return Integer16(str);
+}
+
+Integer32 operator""_z32(char const* str)
+{
+    return Integer32(str);
+}
+
+Integer64 operator""_z64(char const* str)
+{
+    return Integer64(str);
 }
 
 Integer<uintmax_t> operator""_z(char const* str)

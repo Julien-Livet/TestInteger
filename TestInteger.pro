@@ -7,10 +7,10 @@ CONFIG(debug, debug|release) {
     DEFINES += NDEBUG
 }
 
-DEFINES += USING_GMP
+DEFINES += WITH_GMP
 
 INCLUDEPATH += .. \
-            D:/Programmes/gmp-6.3.0
+               D:/Programmes/gmp-6.3.0
 
 SOURCES = testinteger.cpp
 

@@ -42,7 +42,7 @@ void TestInteger::testAddition()
 
 #ifdef WITH_GMP
     {
-        Integerc n1, n2;
+        Integerll n1, n2;
         n1.setPrecision(4);
         n2.setPrecision(4);
         n1.setRandom<std::random_device>();
@@ -73,7 +73,7 @@ void TestInteger::testAnd()
 
 #ifdef WITH_GMP
     {
-        Integerc n1, n2;
+        Integerll n1, n2;
         n1.setPrecision(4);
         n2.setPrecision(4);
         n1.setRandom<std::random_device>();
@@ -203,7 +203,7 @@ void TestInteger::testDivision()
 
 #ifdef WITH_GMP
     {
-        Integerc n1, n2;
+        Integerll n1, n2;
         n1.setPrecision(4);
         n2.setPrecision(4);
         n1.setRandom<std::random_device>();
@@ -215,10 +215,10 @@ void TestInteger::testDivision()
             n2.setPositive();
         } while (!n2);
 
-        Integerc const q(n1 / n2);
-        Integerc const r(n1 % n2);
-        mpz_class const n1_{n1.toString(2).substr(2), 2};
-        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        auto const q(n1 / n2);
+        auto const r(n1 % n2);
+        auto const n1_{n1.cast<mpz_class>()};
+        auto const n2_{n2.cast<mpz_class>()};
         mpz_class q_, r_;
 
         mpz_divmod(q_.get_mpz_t(), r_.get_mpz_t(), n1_.get_mpz_t(), n2_.get_mpz_t());
@@ -420,7 +420,7 @@ void TestInteger::testModulo()
 
 #ifdef WITH_GMP
     {
-        Integerc n1, n2;
+        Integerll n1, n2;
         n1.setPrecision(4);
         n2.setPrecision(4);
         n1.setRandom<std::random_device>();
@@ -480,7 +480,7 @@ void TestInteger::testMultiplication()
 
 #ifdef WITH_GMP
     {
-        Integerc n1, n2;
+        Integerll n1, n2;
         n1.setPrecision(4);
         n2.setPrecision(4);
         n1.setRandom<std::random_device>();
@@ -538,7 +538,7 @@ void TestInteger::testOr()
 
 #ifdef WITH_GMP
     {
-        Integerc n1, n2;
+        Integerll n1, n2;
         n1.setPrecision(4);
         n2.setPrecision(4);
         n1.setRandom<std::random_device>();
@@ -689,7 +689,7 @@ void TestInteger::testSubstraction()
 
 #ifdef WITH_GMP
     {
-        Integerc n1, n2;
+        Integerll n1, n2;
         n1.setPrecision(4);
         n2.setPrecision(4);
         n1.setRandom<std::random_device>();

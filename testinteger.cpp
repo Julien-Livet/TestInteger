@@ -40,7 +40,7 @@ void TestInteger::testAddition()
     QVERIFY(Integerc(-3) + 2 == -1);
     QVERIFY(Integerc(17) + 10 == 27);
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -72,7 +72,7 @@ void TestInteger::testAnd()
     QVERIFY((Integerc(0) & 1) == 0);
     QVERIFY((Integerc(1) & 1) == 1);
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -201,7 +201,7 @@ void TestInteger::testDivision()
         QVERIFY(qr4.second == 2);
     }
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -239,7 +239,7 @@ void TestInteger::testDivision()
         QVERIFY((Integerc(a) / b).cast<long long>() == a / b);
     }
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         unsigned long const a{rd()};
@@ -419,7 +419,7 @@ void TestInteger::testModulo()
     QVERIFY(Integerc(5) % -3 == -1);
     QVERIFY(Integerc(5) % 1 == 0);
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -451,7 +451,7 @@ void TestInteger::testModulo()
         QVERIFY((Integerc(a) % b).cast<long long>() == a % b);
     }
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         unsigned long const a{rd()};
@@ -480,7 +480,7 @@ void TestInteger::testMultiplication()
     QVERIFY(Integerc(827382986) * 2670051752 == 2209155391344291472ull);
     QVERIFY(Integerll(17539966127645434034ull) * 452240028370ull == Integerll("7932274779175210128837123544580"));
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -506,7 +506,7 @@ void TestInteger::testMultiplication()
         QVERIFY((Integerc(a) * b).cast<long long>() == a * b);
     }
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         unsigned long const a{rd()};
@@ -539,7 +539,7 @@ void TestInteger::testOr()
     QVERIFY((Integerc(0) | 1) == 1);
     QVERIFY((Integerc(1) | 1) == 1);
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         Integerc n1, n2;
@@ -582,7 +582,7 @@ void TestInteger::testPow()
 
 void TestInteger::testPrimes()
 {
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         mpz_class n;
 
@@ -689,7 +689,7 @@ void TestInteger::testSubstraction()
     QVERIFY(Integerc(3) - 2 == 1);
     QVERIFY(Integerc(17) - 10 == 7);
 
-#ifdef USING_GMP
+#ifdef WITH_GMP
     {
         std::random_device rd;
         Integerc n1, n2;

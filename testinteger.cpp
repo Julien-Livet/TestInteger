@@ -433,8 +433,8 @@ void TestInteger::testModulo()
         } while (!n2);
 
         auto const n3(n1 % n2);
-        mpz_class const n1_{n1.toString(2).substr(2), 2};
-        mpz_class const n2_{n2.toString(2).substr(2), 2};
+        auto const n1_{n1.cast<mpz_class>()};
+        auto const n2_{n2.cast<mpz_class>()};
         mpz_class const n3_{n1_ % n2_};
 
         QVERIFY(n3 == n3_.get_str());

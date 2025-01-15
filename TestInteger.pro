@@ -9,11 +9,10 @@ CONFIG(debug, debug|release) {
 
 DEFINES += WITH_GMP
 
-INCLUDEPATH += .. \
-               D:/Programmes/gmp-6.3.0
+INCLUDEPATH += D:/Programmes/gmp-6.3.0
 
 SOURCES = testinteger.cpp
 
-HEADERS = ../Integer.h
+HEADERS = Integer.h
 
 LIBS += D:/Programmes/gmp-6.3.0/.libs/libgmp.dll.a

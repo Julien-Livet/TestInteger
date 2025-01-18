@@ -159,8 +159,8 @@ void TestInteger::testDivision()
         //auto const qr{computeQrBinary(a, b)};
         auto const qr{computeQrBurnikelZiegler(a, b)};
 
-        QVERIFY((qr.first == Integer32{330, 2815252282}));
-        QVERIFY((qr.second == Integer32{414, 1722637250}));
+        QVERIFY((qr.first == Integer32{895, 2949522023}));
+        QVERIFY((qr.second == Integer32{1439, 3568713638}));
     }
 
     {
@@ -527,6 +527,17 @@ void TestInteger::testMultiplication()
         QVERIFY(a * b == mpz_class{a.cast<mpz_class>() * b.cast<mpz_class>()});
     }
 #endif
+
+    {
+        auto const R(7770675568902916283677847627294075626569627356208558085007249638955617140820833992704_z);
+        auto const R_(680010279989862186166244149356644005277098442961349287385922755838179282048106887085_z);
+        auto const m(4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z);
+        auto const m_(1284709292969470466343427885276984509359479443402178686296542135639082354023360950661_z);
+        auto const a(R * R_);
+        auto const b(m * m_);
+
+        QVERIFY(a - b == 1);
+    }
 }
 
 void TestInteger::testOr()

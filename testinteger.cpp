@@ -153,14 +153,23 @@ void TestInteger::testDivision()
     QVERIFY((Integerc{122, 17, 200,43} / Integerc{23, 117} == Integerc{5, 52, 54}));
 
     {
+        Integer64 const a{4503599627370496ull, 0, 0, 0, 0, 0, 0, 0, 0};
+        Integer64 const b{35521434ull, 14919252733983618111ull, 1302913595559511957ull, 9115028167675518012ull, 17539966127645434035ull};
+
+        auto const qr{computeQrBurnikelZiegler(a, b)};
+
+        QVERIFY(qr.first == 14680747350127168587367274173835335890596763069467497613767172398627451532559082648737_z);
+        QVERIFY(qr.second == 1594676543303987038807308056402896100394583906997527913252246357941475874176416895853_z);
+    }
+
+    {
         Integer32 const a{0, 561453, 13205, 1564};
         Integer32 const b{1698, 721};
 
-        //auto const qr{computeQrBinary(a, b)};
         auto const qr{computeQrBurnikelZiegler(a, b)};
 
-        QVERIFY((qr.first == Integer32{895, 2949522023}));
-        QVERIFY((qr.second == Integer32{1439, 3568713638}));
+        QVERIFY((qr.first == Integer32{330, 2815252282}));
+        QVERIFY((qr.second == Integer32{414, 1722637250}));
     }
 
     {

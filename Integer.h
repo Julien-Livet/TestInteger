@@ -48,25 +48,191 @@ class IntegerExpression
         {
             return static_cast<E const&>(*this).isPositive();
         }
-        
+
         CONSTEXPR bool isNegative() const
         {
             return !isPositive();
         }
-        
-        CONSTEXPR std::vector<typename E::Type> const& bits() const
+
+        template<typename T>
+        CONSTEXPR std::vector<T> const& bits() const
         {
             return static_cast<E const&>(*this).bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             return static_cast<E const&>(*this).isNan();
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return static_cast<E const&>(*this).isInfinity();
+        }
+
+        template <typename S>
+        CONSTEXPR S cast() const
+        {
+            return static_cast<E const&>(*this).template cast<S>();
+        }
+
+        CONSTEXPR operator bool() const noexcept
+        {
+            return !!*this;
+        }
+
+        CONSTEXPR bool operator!() const noexcept
+        {
+            return !static_cast<E const&>(*this);
+        }
+
+        CONSTEXPR std::string toString(size_t base = 10) const
+        {
+            return static_cast<E const&>(*this).toString(base);
+        }
+
+        template <typename T>
+        CONSTEXPR bool operator==(T const& other) const
+        {
+            return static_cast<E const&>(*this).operator==(other);
+        }
+
+        template <typename T>
+        CONSTEXPR bool operator!=(T const& other) const
+        {
+            return static_cast<E const&>(*this).operator!=(other);
+        }
+
+        template <typename T>
+        CONSTEXPR bool operator<=(T const& other) const
+        {
+            return static_cast<E const&>(*this).operator<=(other);
+        }
+
+        template <typename T>
+        CONSTEXPR bool operator>=(T const& other) const
+        {
+            return static_cast<E const&>(*this).operator>=(other);
+        }
+
+        template <typename T>
+        CONSTEXPR bool operator<(T const& other) const
+        {
+            return static_cast<E const&>(*this).operator<(other);
+        }
+
+        template <typename T>
+        CONSTEXPR bool operator>(T const& other) const
+        {
+            return static_cast<E const&>(*this).operator>(other);
+        }
+
+        CONSTEXPR IntegerExpression& operator--()
+        {
+            return *this -= 1;
+        }
+
+        CONSTEXPR IntegerExpression operator--(int)
+        {
+            auto x(*this);
+
+            operator--();
+
+            return x;
+        }
+
+        CONSTEXPR IntegerExpression& operator++()
+        {
+            return *this += 1;
+        }
+
+        CONSTEXPR IntegerExpression operator++(int)
+        {
+            auto x(*this);
+
+            operator++();
+
+            return x;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator+=(T const& other)
+        {
+            *this = *this + other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator-=(T const& other)
+        {
+            *this = *this - other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator*=(T const& other)
+        {
+            *this = *this * other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator/=(T const& other)
+        {
+            *this = *this / other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator%=(T const& other)
+        {
+            *this = *this % other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator>>=(T const& other)
+        {
+            *this = *this >> other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator<<=(T const& other)
+        {
+            *this = *this << other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator&=(T const& other)
+        {
+            *this = *this & other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator|=(T const& other)
+        {
+            *this = *this | other;
+
+            return *this;
+        }
+
+        template <typename T>
+        CONSTEXPR IntegerExpression& operator^=(T const& other)
+        {
+            *this = *this ^ other;
+
+            return *this;
         }
 };
 
@@ -82,7 +248,7 @@ class IntegerAdd : public IntegerExpression<IntegerAdd<E1, E2> >
         IntegerAdd(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             if (u_.isPositive() && v_.isPositive())
@@ -94,33 +260,35 @@ class IntegerAdd : public IntegerExpression<IntegerAdd<E1, E2> >
             else //if (!u_.isPositive() && v_.isPositive())
                 return (u_ < v_);
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ + v_);
-            
+            auto w(u_);
+            w += v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             if (u_.isNan() || v_.isNan())
                 return true;
-            else if ((u_.isInfinite() && u_.isPositive() && v_.isInfinite() && v_.isNegative())
-                     || (u_.isInfinite() && u_.isNegative() && v_.isInfinite() && v_.isPositive()))
+            else if ((u_.isInfinity() && u_.isPositive() && v_.isInfinity() && v_.isNegative())
+                     || (u_.isInfinity() && u_.isNegative() && v_.isInfinity() && v_.isPositive()))
                 return true;
             else
                 return false;
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return (u_.isInfinity() || v_.isInfinity());
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerAdd<E1, E2> operator+(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerAdd<E1, E2> operator+(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerAdd<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -137,7 +305,7 @@ class IntegerSub : public IntegerExpression<IntegerSub<E1, E2> >
         IntegerSub(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             if (u_.isPositive() && v_.isPositive())
@@ -149,33 +317,35 @@ class IntegerSub : public IntegerExpression<IntegerSub<E1, E2> >
             else //if (!u_.isPositive() && v_.isPositive())
                 return false;
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ - v_);
-            
+            auto w(u_);
+            w -= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             if (u_.isNan() || v_.isNan())
                 return true;
-            else if ((u_.isInfinite() && u_.isNegative() && v_.isInfinite() && v_.isNegative())
-                     || (u_.isInfinite() && u_.isPositive() && v_.isInfinite() && v_.isNegative()))
+            else if ((u_.isInfinity() && u_.isNegative() && v_.isInfinity() && v_.isNegative())
+                     || (u_.isInfinity() && u_.isPositive() && v_.isInfinity() && v_.isNegative()))
                 return true;
             else
                 return false;
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return (u_.isInfinity() || v_.isInfinity());
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerSub<E1, E2> operator-(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerSub<E1, E2> operator-(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerSub<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -192,7 +362,7 @@ class IntegerMul : public IntegerExpression<IntegerMul<E1, E2> >
         IntegerMul(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             if (u_.isPositive() && v_.isPositive())
@@ -202,14 +372,16 @@ class IntegerMul : public IntegerExpression<IntegerMul<E1, E2> >
             else
                 return false;
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ * v_);
-            
+            auto w(u_);
+            w *= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             if (u_.isNan() || v_.isNan())
@@ -217,7 +389,7 @@ class IntegerMul : public IntegerExpression<IntegerMul<E1, E2> >
             else
                 return false;
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return ((u_.isInfinity() && v_) || (u_ && v_.isInfinity()));
@@ -225,7 +397,7 @@ class IntegerMul : public IntegerExpression<IntegerMul<E1, E2> >
 };
 
 template <typename E1, typename E2>
-IntegerMul<E1, E2> operator*(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerMul<E1, E2> operator*(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerMul<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -242,7 +414,7 @@ class IntegerDiv : public IntegerExpression<IntegerDiv<E1, E2> >
         IntegerDiv(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             if (u_.isPositive() && v_.isPositive())
@@ -252,14 +424,16 @@ class IntegerDiv : public IntegerExpression<IntegerDiv<E1, E2> >
             else
                 return false;
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ / v_);
-            
+            auto w(u_);
+            w /= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             if (u_.isNan() || v_.isNan() || !v_)
@@ -267,15 +441,15 @@ class IntegerDiv : public IntegerExpression<IntegerDiv<E1, E2> >
             else
                 return false;
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return (u_.isInfinity() && v_);
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerDiv<E1, E2> operator/(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerDiv<E1, E2> operator/(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerDiv<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -292,7 +466,7 @@ class IntegerMod : public IntegerExpression<IntegerMod<E1, E2> >
         IntegerMod(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             if (u_.isPositive() && v_.isPositive())
@@ -302,14 +476,16 @@ class IntegerMod : public IntegerExpression<IntegerMod<E1, E2> >
             else
                 return false;
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ % v_);
-            
+            auto w(u_);
+            w %= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             if (u_.isNan() || v_.isNan() || u_.isInfinity() || v_.isInfinity())
@@ -317,15 +493,15 @@ class IntegerMod : public IntegerExpression<IntegerMod<E1, E2> >
             else
                 return false;
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return false;
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerMod<E1, E2> operator%(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerMod<E1, E2> operator%(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerMod<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -341,22 +517,23 @@ class IntegerNeg : public IntegerExpression<IntegerNeg<E> >
         IntegerNeg(E const& u) : u_(u)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             return !u_.isPositive();
         }
-        
-        CONSTEXPR std::vector<typename E::Type> const& bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> const& bits() const
         {
             return u_.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             return u_.isNan();
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return u_.isInfinity();
@@ -364,7 +541,7 @@ class IntegerNeg : public IntegerExpression<IntegerNeg<E> >
 };
 
 template <typename E>
-IntegerNeg<E> operator-(IntegerExpression<E> const& u)
+CONSTEXPR inline IntegerNeg<E> operator-(IntegerExpression<E> const& u)
 {
    return IntegerNeg<E>(*static_cast<const E*>(&u));
 }
@@ -381,19 +558,21 @@ class IntegerRShift : public IntegerExpression<IntegerRShift<E1, E2> >
         IntegerRShift(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             return u_.isPositive();
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ << v_);
-            
+            auto w(u_);
+            w <<= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             if (u_.isNan() || v_.isNan() || u_.isInfinity() || v_.isInfinity())
@@ -401,15 +580,15 @@ class IntegerRShift : public IntegerExpression<IntegerRShift<E1, E2> >
             else
                 return false;
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return u_.isInfinity();
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerRShift<E1, E2> operator<<(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerRShift<E1, E2> operator<<(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerRShift<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -426,19 +605,21 @@ class IntegerLShift : public IntegerExpression<IntegerLShift<E1, E2> >
         IntegerLShift(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             return u_.isPositive();
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ >> v_);
-            
+            auto w(u_);
+            w >>= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             if (u_.isNan() || v_.isNan() || u_.isInfinity())
@@ -446,15 +627,15 @@ class IntegerLShift : public IntegerExpression<IntegerLShift<E1, E2> >
             else
                 return false;
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return u_.isInfinity();
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerLShift<E1, E2> operator>>(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerLShift<E1, E2> operator>>(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerLShift<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -471,32 +652,34 @@ class IntegerAnd : public IntegerExpression<IntegerAnd<E1, E2> >
         IntegerAnd(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             return u_.isPositive() & v_.isPositive();
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_& v_);
-            
+            auto w(u_);
+            w &= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             return (u_.isNan() || v_.isNan());
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return (u_.isInfinity() || v_.isInfinity());
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerAnd<E1, E2> operator&(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerAnd<E1, E2> operator&(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerAnd<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -513,32 +696,34 @@ class IntegerOr : public IntegerExpression<IntegerOr<E1, E2> >
         IntegerOr(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             return u_.isPositive() | v_.isPositive();
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ | v_);
-            
+            auto w(u_);
+            w |= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             return (u_.isNan() || v_.isNan());
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return (u_.isInfinity() || v_.isInfinity());
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerOr<E1, E2> operator|(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerOr<E1, E2> operator|(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerOr<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -555,32 +740,34 @@ class IntegerXor : public IntegerExpression<IntegerXor<E1, E2> >
         IntegerXor(E1 const& u, E2 const& v) : u_(u), v_(v)
         {
         }
-        
+
         CONSTEXPR bool isPositive() const
         {
             return u_.isPositive() | v_.isPositive();
         }
-        
-        CONSTEXPR std::vector<typename E1::Type> bits() const
+
+        template <typename T>
+        CONSTEXPR std::vector<T> bits() const
         {
-            auto const w(u_ ^ v_);
-            
+            auto w(u_);
+            w ^= v_;
+
             return w.bits();
         }
-            
+
         CONSTEXPR bool isNan() const
         {
             return (u_.isNan() || v_.isNan());
         }
-            
+
         CONSTEXPR bool isInfinity() const
         {
             return (u_.isInfinity() || v_.isInfinity());
         }
 };
-  
+
 template <typename E1, typename E2>
-IntegerXor<E1, E2> operator^(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
+CONSTEXPR inline IntegerXor<E1, E2> operator^(IntegerExpression<E1> const& u, IntegerExpression<E2> const& v)
 {
    return IntegerXor<E1, E2>(*static_cast<const E1*>(&u), *static_cast<const E2*>(&v));
 }
@@ -589,13 +776,11 @@ template <typename T, typename Enable = void>
 class Integer;
 
 template <typename T>
-class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : public IntegerExpression<Integer<T> >
+class Integer<T, typename std::enable_if_t<std::is_unsigned_v<T> > > : public IntegerExpression<Integer<T> >
 {
     public:
-        typedef T Type;
-    
         static constexpr bool is_leaf = true;
-    
+
         template <typename E>
         Integer(IntegerExpression<E> const& expr)
         {
@@ -604,7 +789,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             isNan_ = expr.isNan();
             isInfinity_ = expr.isInfinity();
         }
-    
+
         CONSTEXPR Integer() : bits_{T{0}}
         {
         }
@@ -667,16 +852,16 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
         }
 
 #ifdef WITH_GMP
-        CONSTEXPR explicit Integer(mpz_class const& n) : Integer(n.get_str(2), 2)
+        CONSTEXPR Integer(mpz_class const& n) : Integer(n.get_str(2), 2)
         {
         }
 #endif
 
-        CONSTEXPR explicit Integer(char const* n, size_t base = 0) : Integer(std::string{n}, base)
+        CONSTEXPR Integer(char const* n, size_t base = 0) : Integer(std::string{n}, base)
         {
         }
 
-        CONSTEXPR explicit Integer(std::string n, size_t base = 0)
+        CONSTEXPR Integer(std::string n, size_t base = 0)
         {
             n.erase(std::remove_if(n.begin(), n.end(), isspace), n.end());
             n.erase(std::remove(n.begin(), n.end(), '\''), n.end());
@@ -902,7 +1087,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
 
             for (auto& t : threads)
                 t.join();
-            
+
             if (autoAdjust_)
                 adjust();
         }
@@ -1103,7 +1288,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
         {
             auto const lhs(*this);
             auto const rhs(other);
-            
+
             if (isNan() || other.isNan())
                 setNan();
             else if (isInfinity() || other.isInfinity())
@@ -1357,7 +1542,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             else if (isNan() || other.isNan() || isInfinity() || other.isInfinity())
             {
                 setNan();
-                
+
                 return *this;
             }
 
@@ -1383,7 +1568,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
                 for (auto it{bits_.begin() + 1}; it != bits_.end(); ++it)
                 {
                     longest_type const s{sizeof(T) * 8};
-                    
+
                     if ((*it >> (s - shift)))
                         *(it - 1) |= (*it >> (s - shift));
 
@@ -1406,7 +1591,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             else if (isNan() || other.isNan() || isInfinity())
             {
                 setNan();
-                
+
                 return *this;
             }
             else if (other.isInfinity())
@@ -1415,7 +1600,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
                     setNan();
                 else
                     *this = 0;
-                
+
                 return *this;
             }
 
@@ -1460,6 +1645,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             return operator>(other) || operator==(other);
         }
 
+        template <typename S>
+        CONSTEXPR bool operator>=(S const& other) const
+        {
+            return operator>(Integer<T>(other)) || operator==(Integer<T>(other));
+        }
+
         CONSTEXPR bool operator>(Integer const& other) const
         {
             if (!isPositive_ && other.isPositive_)
@@ -1490,9 +1681,21 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             return isPositive_ ? great : !great;
         }
 
+        template <typename S>
+        CONSTEXPR bool operator>(S const& other) const
+        {
+            return operator>(Integer<T>(other));
+        }
+
         CONSTEXPR bool operator<=(Integer const& other) const
         {
             return operator<(other) || operator==(other);
+        }
+
+        template <typename S>
+        CONSTEXPR bool operator<=(S const& other) const
+        {
+            return operator<(Integer<T>(other)) || operator==(Integer<T>(other));
         }
 
         CONSTEXPR bool operator<(Integer const& other) const
@@ -1525,6 +1728,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             return isPositive_ ? less : !less;
         }
 
+        template <typename S>
+        CONSTEXPR bool operator<(S const& other) const
+        {
+            return operator<(Integer<T>(other));
+        }
+
         CONSTEXPR bool operator==(Integer const& other) const noexcept
         {
             if (isNan() && other.isNan())
@@ -1535,7 +1744,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
                 return (isPositive() == other.isPositive());
             else if (isInfinity() || other.isInfinity())
                 return false;
-            
+
             if (bits_.size() != other.bits_.size())
             {
                 if (bits_.size() > other.bits_.size())
@@ -1614,7 +1823,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             return x;
         }
 
-        CONSTEXPR operator bool() const noexcept
+        CONSTEXPR explicit operator bool() const noexcept
         {
             return !!*this;
         }
@@ -2015,17 +2224,17 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             return s;
         }
 
-        CONSTEXPR operator char() const noexcept
+        CONSTEXPR explicit operator char() const noexcept
         {
             return cast<char>();
         }
 
-        CONSTEXPR operator unsigned char() const noexcept
+        CONSTEXPR explicit operator unsigned char() const noexcept
         {
             return cast<unsigned char>();
         }
 
-        CONSTEXPR operator short() const noexcept
+        CONSTEXPR explicit operator short() const noexcept
         {
             return cast<short>();
         }
@@ -2052,37 +2261,37 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             return n;
         }
 
-        CONSTEXPR operator unsigned short() const noexcept
+        CONSTEXPR explicit operator unsigned short() const noexcept
         {
             return cast<unsigned short>();
         }
 
-        CONSTEXPR operator int() const noexcept
+        CONSTEXPR explicit operator int() const noexcept
         {
             return cast<int>();
         }
 
-        CONSTEXPR operator unsigned int() const noexcept
+        CONSTEXPR explicit operator unsigned int() const noexcept
         {
             return cast<unsigned int>();
         }
 
-        CONSTEXPR operator long() const noexcept
+        CONSTEXPR explicit operator long() const noexcept
         {
             return cast<long>();
         }
 
-        CONSTEXPR operator unsigned long() const noexcept
+        CONSTEXPR explicit operator unsigned long() const noexcept
         {
             return cast<unsigned long>();
         }
 
-        CONSTEXPR operator long long() const noexcept
+        CONSTEXPR explicit operator long long() const noexcept
         {
             return cast<long long>();
         }
 
-        CONSTEXPR operator unsigned long long() const noexcept
+        CONSTEXPR explicit operator unsigned long long() const noexcept
         {
             return cast<unsigned long long>();
         }
@@ -2127,7 +2336,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
         CONSTEXPR void setPrecision(size_t precision)
         {
             assert(precision);
-            
+
             if (precision == bits_.size())
                 return;
 
@@ -2143,17 +2352,17 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
         {
             isNan_ = false;
             isInfinity_ = false;
-            
+
             URNG g;
-                    
+
             isPositive_ = g() % 2;
-            
+
             auto threadFunc
             {
                 [this] (size_t start, size_t end) -> void
                 {
                     URNG g;
-                    
+
                     for (size_t i{start}; i < end; ++i)
                     {
                         auto const n{g()};
@@ -2163,7 +2372,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
                         else
                         {
                             this->bits_[i] = T{0};
-                            
+
                             auto const jMax{sizeof(T) / sizeof(n)};
 
                             for (size_t j{0}; j < jMax; ++j)
@@ -2194,7 +2403,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
         CONSTEXPR int isPrime(size_t reps = 50) const
         {
             assert(reps);
-            
+
             if (*this < 2)
                 return 0;
             else if (*this == 2)
@@ -2207,11 +2416,11 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
 
                 if (p.first != primes.end() && *p.first != this->template cast<unsigned int>())
                     --p.first;
-                
+
                 if (p.first != p.second && *p.first == this->template cast<unsigned int>())
                     return 2;
             }
-            
+
             auto isPrimeDivisible
             {
                 [](Integer const& n, unsigned int prime) -> bool
@@ -2225,7 +2434,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             {
                 auto const sqrtLimit(sqrt(*this));
                 std::atomic<bool> divisible(false);
-        
+
                 auto threadFunc
                 {
                     [this, &divisible, &sqrtLimit, &isPrimeDivisible] (size_t start, size_t end) -> void
@@ -2234,7 +2443,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
                         {
                             if (primes[i] > sqrtLimit)
                                 break;
-                            
+
                             if (isPrimeDivisible(*this, primes[i]))
                             {
                                 divisible.store(true);
@@ -2260,7 +2469,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
 
                 if (divisible.load())
                     return 0;
-                
+
                 if (sqrtLimit < primes.back())
                     return 2;
             }
@@ -2383,10 +2592,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
                 R_ = -R_;
                 m_ = -m_;
             }
-            
+
             {
                 std::atomic<bool> divisible(false);
-            
+
                 auto threadFunc
                 {
                     [this, &divisible, &modulo, &mulmod,
@@ -2417,7 +2626,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
                         }
                     }
                 };
-                
+
                 size_t const numThreads{std::thread::hardware_concurrency()};
                 size_t const chunkSize{reps / numThreads};
                 std::vector<std::thread> threads;
@@ -2637,10 +2846,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             else if (this->template fits<unsigned int>())
             {
                 auto p{std::equal_range(primes.begin(), primes.end(), this->template cast<unsigned int>())};
-                
+
                 if (p.first != primes.end() && *p.first != this->template cast<unsigned int>())
                     --p.first;
-                
+
                 if (p.first != p.second && p.second != primes.end())
                 {
                     if (*p.first == this->template cast<unsigned int>())
@@ -2651,7 +2860,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             }
 
             auto n(*this);
-            
+
             if (n % 2)
                 n -= 2;
             else
@@ -2676,10 +2885,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
             else if (this->template fits<unsigned int>())
             {
                 auto p{std::equal_range(primes.begin(), primes.end(), this->template cast<unsigned int>())};
-                
+
                 if (p.first != primes.end() && *p.first != this->template cast<unsigned int>())
                     --p.first;
-                
+
                 if (p.first != p.second && p.second != primes.end())
                     return Integer(*p.second);
             }
@@ -2733,22 +2942,22 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type> : pu
         {
             autoAdjust_ = autoAdjust;
         }
-        
+
         CONSTEXPR char const* data() const noexcept
         {
             return reinterpret_cast<char const*>(bits_.data());
         }
-        
+
         CONSTEXPR char* data() noexcept
         {
             return reinterpret_cast<char*>(bits_.data());
         }
-        
+
         CONSTEXPR size_t dataSize() const noexcept
         {
             return sizeof(T) / sizeof(char) * bits_.size();
         }
-        
+
         CONSTEXPR void setData(char const* data, size_t size) noexcept
         {
             std::memcpy(bits_.data(), data, std::min(size, dataSize()));
@@ -2775,7 +2984,7 @@ using Integer64 = Integer<uint64_t>;
 #ifdef WITH_GMP
 template <>
 template <>
-mpz_class Integer<unsigned char>::cast<mpz_class>() const
+inline mpz_class Integer<unsigned char>::cast<mpz_class>() const
 {
     auto s{toString(2)};
     s.replace(s.find("0b"), 2, "");
@@ -2785,7 +2994,7 @@ mpz_class Integer<unsigned char>::cast<mpz_class>() const
 
 template <>
 template <>
-mpz_class Integer<unsigned short>::cast<mpz_class>() const
+inline mpz_class Integer<unsigned short>::cast<mpz_class>() const
 {
     auto s{toString(2)};
     s.replace(s.find("0b"), 2, "");
@@ -2795,7 +3004,7 @@ mpz_class Integer<unsigned short>::cast<mpz_class>() const
 
 template <>
 template <>
-mpz_class Integer<unsigned int>::cast<mpz_class>() const
+inline mpz_class Integer<unsigned int>::cast<mpz_class>() const
 {
     auto s{toString(2)};
     s.replace(s.find("0b"), 2, "");
@@ -2805,7 +3014,7 @@ mpz_class Integer<unsigned int>::cast<mpz_class>() const
 
 template <>
 template <>
-mpz_class Integer<unsigned long>::cast<mpz_class>() const
+inline mpz_class Integer<unsigned long>::cast<mpz_class>() const
 {
     auto s{toString(2)};
     s.replace(s.find("0b"), 2, "");
@@ -2815,7 +3024,7 @@ mpz_class Integer<unsigned long>::cast<mpz_class>() const
 
 template <>
 template <>
-mpz_class Integer<unsigned long long>::cast<mpz_class>() const
+inline mpz_class Integer<unsigned long long>::cast<mpz_class>() const
 {
     auto s{toString(2)};
 
@@ -2827,287 +3036,239 @@ mpz_class Integer<unsigned long long>::cast<mpz_class>() const
 
 template <>
 template <>
-std::string Integer<unsigned char>::cast<std::string>() const
+inline std::string Integer<unsigned char>::cast<std::string>() const
 {
     return toString();
 }
 
 template <>
 template <>
-std::string Integer<unsigned short>::cast<std::string>() const
+inline std::string Integer<unsigned short>::cast<std::string>() const
 {
     return toString();
 }
 
 template <>
 template <>
-std::string Integer<unsigned int>::cast<std::string>() const
+inline std::string Integer<unsigned int>::cast<std::string>() const
 {
     return toString();
 }
 
 template <>
 template <>
-std::string Integer<unsigned long>::cast<std::string>() const
+inline std::string Integer<unsigned long>::cast<std::string>() const
 {
     return toString();
 }
 
 template <>
 template <>
-std::string Integer<unsigned long long>::cast<std::string>() const
+inline std::string Integer<unsigned long long>::cast<std::string>() const
 {
     return toString();
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator*(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs *= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator+(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs += rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator-(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs -= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator/(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs /= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator%(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs %= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator&(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs &= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator|(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs |= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator^(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs ^= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator<<(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs <<= rhs;
-}
-
-template <typename T>
-CONSTEXPR Integer<T> operator>>(Integer<T> lhs, Integer<T> const& rhs)
-{
-    return lhs >>= rhs;
 }
 
 template <typename T, typename S>
-CONSTEXPR bool operator>(Integer<T> const& lhs, S const& rhs) noexcept
-{
-    return lhs.operator>(Integer<T>(rhs));
-}
-
-template <typename T, typename S>
-CONSTEXPR bool operator>(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR inline bool operator>(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator<(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-CONSTEXPR bool operator>=(Integer<T> const& lhs, S const& rhs) noexcept
-{
-    return lhs.operator>=(Integer<T>(rhs));
-}
-
-template <typename T, typename S>
-CONSTEXPR bool operator>=(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR inline bool operator>=(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator<=(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-CONSTEXPR bool operator<(Integer<T> const& lhs, S const& rhs) noexcept
-{
-    return lhs.operator<(Integer<T>(rhs));
-}
-
-template <typename T, typename S>
-CONSTEXPR bool operator<(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR inline bool operator<(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator>(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-CONSTEXPR bool operator<=(Integer<T> const& lhs, S const& rhs) noexcept
-{
-    return lhs.operator<=(Integer<T>(rhs));
-}
-
-template <typename T, typename S>
-CONSTEXPR bool operator<=(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR inline bool operator<=(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator>=(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-CONSTEXPR bool operator==(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR inline bool operator==(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator==(Integer<T>(lhs));
 }
 
 template <typename T, typename S>
-CONSTEXPR bool operator!=(S const& lhs, Integer<T> const& rhs) noexcept
+CONSTEXPR inline bool operator!=(S const& lhs, Integer<T> const& rhs) noexcept
 {
     return rhs.operator!=(Integer<T>(lhs));
 }
+/*
+#define DEFINE_INTEGER_OPERATOR_TYPE(op, type)                                                      \
+template <typename T>                                                                               \
+CONSTEXPR inline IntegerExpression<T> operator op(IntegerExpression<T> const& lhs, type const& rhs) \
+{                                                                                                   \
+    return lhs op Integer<T>(rhs);                                                                  \
+}                                                                                                   \
+                                                                                                    \
+template <typename T>                                                                               \
+CONSTEXPR inline IntegerExpression<T> operator op(type const& lhs, IntegerExpression<T> const& rhs) \
+{                                                                                                   \
+    return Integer<T>(lhs) op rhs;                                                                  \
+}                                                                                                   \
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator+(Integer<T> lhs, S const& rhs)
+#define DEFINE_INTEGER_OPERATORS_TYPE(type) \
+DEFINE_INTEGER_OPERATOR_TYPE(+, type)       \
+DEFINE_INTEGER_OPERATOR_TYPE(-, type)       \
+DEFINE_INTEGER_OPERATOR_TYPE(*, type)       \
+DEFINE_INTEGER_OPERATOR_TYPE(/, type)       \
+DEFINE_INTEGER_OPERATOR_TYPE(%, type)       \
+DEFINE_INTEGER_OPERATOR_TYPE(>>, type)      \
+DEFINE_INTEGER_OPERATOR_TYPE(<<, type)      \
+DEFINE_INTEGER_OPERATOR_TYPE(&, type)       \
+DEFINE_INTEGER_OPERATOR_TYPE(|, type)       \
+DEFINE_INTEGER_OPERATOR_TYPE(^, type)
+
+DEFINE_INTEGER_OPERATORS_TYPE(char)
+DEFINE_INTEGER_OPERATORS_TYPE(unsigned char)
+DEFINE_INTEGER_OPERATORS_TYPE(short)
+DEFINE_INTEGER_OPERATORS_TYPE(unsigned short)
+DEFINE_INTEGER_OPERATORS_TYPE(int)
+DEFINE_INTEGER_OPERATORS_TYPE(unsigned int)
+DEFINE_INTEGER_OPERATORS_TYPE(long)
+DEFINE_INTEGER_OPERATORS_TYPE(unsigned long)
+DEFINE_INTEGER_OPERATORS_TYPE(long long)
+DEFINE_INTEGER_OPERATORS_TYPE(unsigned long long)
+*/
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator+(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs += Integer<T>(rhs);
+    return lhs + T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator+(S const& lhs, Integer<T> rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator+(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return rhs += Integer<T>(lhs);
+    return rhs + T(lhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator-(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator-(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs -= Integer<T>(rhs);
+    return lhs - T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator-(S const& lhs, Integer<T> rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator-(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return -(rhs -= Integer<T>(lhs));
+    return -rhs + T(lhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator/(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator*(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs /= Integer<T>(rhs);
+    return lhs * T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator/(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator*(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) /= rhs;
+    return rhs * T(lhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator*(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator/(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs *= Integer<T>(rhs);
+    return lhs / T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator*(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator/(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) *= rhs;
+    return T(lhs) / rhs;
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator%(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator%(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs %= Integer<T>(rhs);
+    return lhs % T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator%(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator%(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) %= rhs;
+    return T(lhs) % rhs;
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator<<(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator>>(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs <<= Integer<T>(rhs);
+    return lhs >> T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator<<(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator>>(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) <<= rhs;
+    return T(lhs) >> rhs;
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator>>(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator<<(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs >>= Integer<T>(rhs);
+    return lhs << T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator>>(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator<<(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) >>= rhs;
+    return T(lhs) << rhs;
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator&(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator&(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs &= Integer<T>(rhs);
+    return lhs & T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator&(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator&(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) &= rhs;
+    return rhs & T(lhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator|(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator|(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs |= Integer<T>(rhs);
+    return lhs | T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator|(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator|(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) |= rhs;
+    return rhs | T(lhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator^(Integer<T> lhs, S const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator^(IntegerExpression<T> const& lhs, S const& rhs)
 {
-    return lhs ^= Integer<T>(rhs);
+    return lhs ^ T(rhs);
 }
 
-template <typename T, typename S>
-CONSTEXPR Integer<T> operator^(S const& lhs, Integer<T> const& rhs)
+template <typename T, typename S, typename std::enable_if_t<!std::is_base_of_v<S, T> >* = nullptr>
+CONSTEXPR inline decltype(auto) operator^(S const& lhs, IntegerExpression<T> const& rhs)
 {
-    return Integer<T>(lhs) ^= rhs;
+    return rhs ^ T(lhs);
 }
 
 template <typename T>
-inline CONSTEXPR std::ostream& operator<<(std::ostream& os, Integer<T> const& n)
+CONSTEXPR inline std::ostream& operator<<(std::ostream& os, Integer<T> const& n)
 {
     return os << n.toString();
 }
 
 template <typename T>
-CONSTEXPR Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
+CONSTEXPR inline Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
 {
     if (a.isNan() || b.isNan() || a.isInfinity() || b.isInfinity())
         return Integer<T>::nan();
@@ -3138,46 +3299,46 @@ CONSTEXPR Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> gcd(Integer<T> const& a, S const& b)
+CONSTEXPR inline Integer<T> gcd(Integer<T> const& a, S const& b)
 {
     return gcd(a, Integer<T>(b));
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> gcd(S const& a, Integer<T> const& b)
+CONSTEXPR inline Integer<T> gcd(S const& a, Integer<T> const& b)
 {
     return gcd(Integer<T>(a), b);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> lcm(Integer<T> const& a, Integer<T> const& b)
+CONSTEXPR inline Integer<T> lcm(Integer<T> const& a, Integer<T> const& b)
 {
     return (a * b).abs() / gcd(a, b);
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> lcm(Integer<T> const& a, S const& b)
+CONSTEXPR inline Integer<T> lcm(Integer<T> const& a, S const& b)
 {
     return lcm(a, Integer<T>(b));
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> lcm(S const& a, Integer<T> const& b)
+CONSTEXPR inline Integer<T> lcm(S const& a, Integer<T> const& b)
 {
     return lcm(Integer<T>(a), b);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> gcdExtended(Integer<T> a, Integer<T> b, Integer<T>& u, Integer<T>& v)
+CONSTEXPR inline Integer<T> gcdExtended(Integer<T> a, Integer<T> b, Integer<T>& u, Integer<T>& v)
 {
     if (a.isNan() || b.isNan() || a.isInfinity() || b.isInfinity())
     {
         u.setNan();
         v.setNan();
-        
+
         return Integer<T>::nan();
     }
-    
+
     if (!a && !b)
         return Integer<T>(0);
 
@@ -3207,13 +3368,13 @@ CONSTEXPR Integer<T> gcdExtended(Integer<T> a, Integer<T> b, Integer<T>& u, Inte
 }
 
 template <typename T, typename S1, typename S2>
-CONSTEXPR Integer<T> gcdExtended(S1 const& a, S2 const& b, Integer<T>& u, Integer<T>& v)
+CONSTEXPR inline Integer<T> gcdExtended(S1 const& a, S2 const& b, Integer<T>& u, Integer<T>& v)
 {
     return gcdExtended(Integer<T>(a), Integer<T>(b), u, v);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> factorial(Integer<T> const& n)
+CONSTEXPR inline Integer<T> factorial(Integer<T> const& n)
 {
     if (n.isNan() || n.isInfinity())
         return n;
@@ -3227,31 +3388,31 @@ CONSTEXPR Integer<T> factorial(Integer<T> const& n)
 }
 
 template <typename T>
-CONSTEXPR Integer<T> doubleFactorial(Integer<T> const& n)
+CONSTEXPR inline Integer<T> doubleFactorial(Integer<T> const& n)
 {
     return factorial(factorial(n));
 }
 
 template <typename T>
-CONSTEXPR Integer<T> multiFactorial(Integer<T> const& n, Integer<T> const& m)
+CONSTEXPR inline Integer<T> multiFactorial(Integer<T> const& n, Integer<T> const& m)
 {
     return pow(factorial(n), m);
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> multiFactorial(Integer<T> const& n, S const& m)
+CONSTEXPR inline Integer<T> multiFactorial(Integer<T> const& n, S const& m)
 {
     return multiFactorial(n, Integer<T>(m));
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> multiFactorial(S const& n, Integer<T> const& m)
+CONSTEXPR inline Integer<T> multiFactorial(S const& n, Integer<T> const& m)
 {
     return multiFactorial(Integer<T>(n), m);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> pow(Integer<T> base, Integer<T> exp)
+CONSTEXPR inline Integer<T> pow(Integer<T> base, Integer<T> exp)
 {
     assert(exp >= 0);
 
@@ -3290,19 +3451,19 @@ CONSTEXPR Integer<T> pow(Integer<T> base, Integer<T> exp)
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> pow(Integer<T> const& base, S const& exp)
+CONSTEXPR inline Integer<T> pow(Integer<T> const& base, S const& exp)
 {
     return pow(base, Integer<T>(exp));
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> pow(S const& base, Integer<T> const& exp)
+CONSTEXPR inline Integer<T> pow(S const& base, Integer<T> const& exp)
 {
     return pow(Integer<T>(base), exp);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> powm(Integer<T> base, Integer<T> exp, Integer<T> const& mod)
+CONSTEXPR inline Integer<T> powm(Integer<T> base, Integer<T> exp, Integer<T> const& mod)
 {
     assert(exp >= 0);
 
@@ -3328,19 +3489,19 @@ CONSTEXPR Integer<T> powm(Integer<T> base, Integer<T> exp, Integer<T> const& mod
 }
 
 template <typename T, typename S, typename U>
-CONSTEXPR Integer<T> powm(Integer<T> const& base, S const& exp, U const& mod)
+CONSTEXPR inline Integer<T> powm(Integer<T> const& base, S const& exp, U const& mod)
 {
     return powm(base, Integer<T>(exp), Integer<T>(mod));
 }
 
 template <typename T>
-CONSTEXPR Integer<T> abs(Integer<T> const& n)
+CONSTEXPR inline Integer<T> abs(Integer<T> const& n)
 {
     return n.abs();
 }
 
 template <typename T>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, Integer<T> const& divisor)
 {
     if (!divisor)
         return {Integer<T>::nan(), Integer<T>::nan()};
@@ -3403,7 +3564,7 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
         auto mid(end + start);
         mid >>= 1;
 
-        auto n(dividend - divisor * mid);
+        Integer<T> n(dividend - divisor * mid);
 
         if (n > divisor)
             start = mid + 1;
@@ -3425,19 +3586,19 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividen
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQr(Integer<T> const& dividend, S const& divisor)
 {
     return computeQr(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQr(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQr(S const& dividend, Integer<T> const& divisor)
 {
     return computeQr(Integer<T>(dividend), divisor);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> const& divisor)
 {
     if (!divisor)
         return Integer<T>::nan();
@@ -3466,7 +3627,7 @@ CONSTEXPR Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
         auto mid(end + start);
         mid >>= 1;
 
-        auto n(dividend - divisor * mid);
+        Integer<T> n(dividend - divisor * mid);
 
         if (n > divisor)
             start = mid + 1;
@@ -3488,19 +3649,19 @@ CONSTEXPR Integer<T> computeQuotient(Integer<T> const& dividend, Integer<T> cons
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotient(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQuotient(Integer<T> const& dividend, S const& divisor)
 {
     return computeQuotient(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotient(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQuotient(S const& dividend, Integer<T> const& divisor)
 {
     return computeQuotient(Integer<T>(dividend), divisor);
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> fibonacci(Integer<T> n)
+CONSTEXPR inline Integer<T> fibonacci(Integer<T> n)
 {
     assert(n >= 0);
 
@@ -3527,7 +3688,7 @@ CONSTEXPR Integer<T> fibonacci(Integer<T> n)
 }
 
 template <typename T>
-CONSTEXPR Integer<T> primorial(Integer<T> n)
+CONSTEXPR inline Integer<T> primorial(Integer<T> n)
 {
     Integer<T> result(1);
     Integer<T> number(2);
@@ -3542,7 +3703,7 @@ CONSTEXPR Integer<T> primorial(Integer<T> n)
 }
 
 template <typename T>
-CONSTEXPR int jacobi(Integer<T> const& a, Integer<T> n)
+CONSTEXPR inline int jacobi(Integer<T> const& a, Integer<T> n)
 {
     assert(n > 0 && n.isOdd());
 
@@ -3564,19 +3725,19 @@ CONSTEXPR int jacobi(Integer<T> const& a, Integer<T> n)
 }
 
 template <typename T, typename S>
-CONSTEXPR int jacobi(Integer<T> const& a, S const& n)
+CONSTEXPR inline int jacobi(Integer<T> const& a, S const& n)
 {
     return jacobi(a, Integer<T>(n));
 }
 
 template <typename T, typename S>
-CONSTEXPR int jacobi(S const& a, Integer<T> const& n)
+CONSTEXPR inline int jacobi(S const& a, Integer<T> const& n)
 {
     return jacobi(Integer<T>(a), n);
 }
 
 template <typename T>
-CONSTEXPR int legendre(Integer<T> const& a, Integer<T> const& p)
+CONSTEXPR inline int legendre(Integer<T> const& a, Integer<T> const& p)
 {
     assert(p.isPrime());
 
@@ -3599,19 +3760,19 @@ CONSTEXPR int legendre(Integer<T> const& a, Integer<T> const& p)
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> legendre(Integer<T> const& a, S const& p)
+CONSTEXPR inline Integer<T> legendre(Integer<T> const& a, S const& p)
 {
     return legendre(a, Integer<T>(p));
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> legendre(S const& a, Integer<T> const& p)
+CONSTEXPR inline Integer<T> legendre(S const& a, Integer<T> const& p)
 {
     return legendre(Integer<T>(a), p);
 }
 
 template <typename T>
-CONSTEXPR int kronecker(Integer<T> const& a, Integer<T> const& b)
+CONSTEXPR inline int kronecker(Integer<T> const& a, Integer<T> const& b)
 {
     if (a == b)
         return 1;
@@ -3620,19 +3781,19 @@ CONSTEXPR int kronecker(Integer<T> const& a, Integer<T> const& b)
 }
 
 template <typename T, typename S>
-CONSTEXPR int kronecker(Integer<T> const& a, S const& b)
+CONSTEXPR inline int kronecker(Integer<T> const& a, S const& b)
 {
     return kronecker(a, Integer<T>(b));
 }
 
 template <typename T, typename S>
-CONSTEXPR int kronecker(S const& a, Integer<T> const& b)
+CONSTEXPR inline int kronecker(S const& a, Integer<T> const& b)
 {
     return kronecker(Integer<T>(a), b);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> binomial(Integer<T> const& n, Integer<T> const& k)
+CONSTEXPR inline Integer<T> binomial(Integer<T> const& n, Integer<T> const& k)
 {
     assert(n >= 0 && k >= 0);
 
@@ -3640,19 +3801,19 @@ CONSTEXPR Integer<T> binomial(Integer<T> const& n, Integer<T> const& k)
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> binomial(Integer<T> const& n, S const& k)
+CONSTEXPR inline Integer<T> binomial(Integer<T> const& n, S const& k)
 {
     return binomial(n, Integer<T>(k));
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> binomial(S const& n, Integer<T> const& k)
+CONSTEXPR inline Integer<T> binomial(S const& n, Integer<T> const& k)
 {
     return binomial(Integer<T>(n), k);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> sqrt(Integer<T> const& n)
+CONSTEXPR inline Integer<T> sqrt(Integer<T> const& n)
 {
     if (n < 0)
         return Integer<T>::nan();
@@ -3680,10 +3841,10 @@ CONSTEXPR Integer<T> sqrt(Integer<T> const& n)
 }
 
 template <typename T>
-CONSTEXPR Integer<T> root(Integer<T> const& x, Integer<T> const& n)
+CONSTEXPR inline Integer<T> root(Integer<T> const& x, Integer<T> const& n)
 {
     assert(n > 0);
-    
+
     if (x < 0)
         return Integer<T>::nan();
     else if (!x || x == 1 || x.isNan() || x.isInfinity())
@@ -3714,19 +3875,19 @@ CONSTEXPR Integer<T> root(Integer<T> const& x, Integer<T> const& n)
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> root(S const& x, Integer<T> const& n)
+CONSTEXPR inline Integer<T> root(S const& x, Integer<T> const& n)
 {
     return root(Integer<T>(x), n);
 }
 
 template <typename T, typename S>
-CONSTEXPR Integer<T> root(Integer<T> const& x, S const& n)
+CONSTEXPR inline Integer<T> root(Integer<T> const& x, S const& n)
 {
     return root(x, Integer<T>(n));
 }
 
 template <typename T>
-CONSTEXPR Integer<T> computeQuotientBinary(Integer<T> dividend, Integer<T> const& divisor)
+CONSTEXPR inline Integer<T> computeQuotientBinary(Integer<T> dividend, Integer<T> const& divisor)
 {
     if (!divisor)
         return Integer<T>::nan();
@@ -3773,19 +3934,19 @@ CONSTEXPR Integer<T> computeQuotientBinary(Integer<T> dividend, Integer<T> const
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBinary(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQuotientBinary(Integer<T> const& dividend, S const& divisor)
 {
     return computeQuotientBinary(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBinary(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQuotientBinary(S const& dividend, Integer<T> const& divisor)
 {
     return computeQuotientBinary(Integer<T>(dividend), divisor);
 }
 
 template <typename T>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(Integer<T> const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBinary(Integer<T> const& dividend, Integer<T> const& divisor)
 {
     std::pair<Integer<T>, Integer<T> > qr{computeQuotientBinary(dividend, divisor), Integer<T>(0)};
     qr.second = dividend.abs() - qr.first.abs() * divisor.abs();
@@ -3819,31 +3980,31 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(Integer<T> const& d
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBinary(Integer<T> const& dividend, S const& divisor)
 {
     return computeQrBinary(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBinary(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBinary(S const& dividend, Integer<T> const& divisor)
 {
     return computeQrBinary(Integer<T>(dividend), divisor);
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrByDivision(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrByDivision(Integer<T> const& dividend, S const& divisor)
 {
     return computeQrByDivision(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrByDivision(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrByDivision(S const& dividend, Integer<T> const& divisor)
 {
     return computeQrByDivision(Integer<T>(dividend), divisor);
 }
 
 template <typename T>
-CONSTEXPR Integer<T> computeQuotientBurnikelZiegler(Integer<T> dividend, Integer<T> const& divisor)
+CONSTEXPR inline Integer<T> computeQuotientBurnikelZiegler(Integer<T> dividend, Integer<T> const& divisor)
 {
     if (!divisor)
         return Integer<T>::nan();
@@ -3881,19 +4042,19 @@ CONSTEXPR Integer<T> computeQuotientBurnikelZiegler(Integer<T> dividend, Integer
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBurnikelZiegler(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQuotientBurnikelZiegler(Integer<T> const& dividend, S const& divisor)
 {
     return computeQuotientBurnikelZiegler(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQuotientBurnikelZiegler(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQuotientBurnikelZiegler(S const& dividend, Integer<T> const& divisor)
 {
     return computeQuotientBurnikelZiegler(Integer<T>(dividend), divisor);
 }
 
 template <typename T>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T> const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T> const& dividend, Integer<T> const& divisor)
 {
     if (!divisor)
         return {Integer<T>::nan(), Integer<T>::nan()};
@@ -3908,7 +4069,7 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T>
     else if (divisor.abs() > dividend.abs())
         return {Integer<T>(0), dividend};
     else if (divisor.abs() == 1)
-        return {divisor.sign() * dividend, Integer<T>(0)};
+        return {Integer<T>(divisor.sign() * dividend), Integer<T>(0)};
     else if (dividend < 0 && divisor < 0)
     {
         auto qr{computeQrBurnikelZiegler(-dividend, -divisor)};
@@ -3959,7 +4120,7 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T>
     {
         if (L + 1 == R)
         {
-            a_digits[L] = x;
+            a_digits[(size_t)L] = x;
             return;
         }
 
@@ -3980,7 +4141,7 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T>
             if (!a)
                 return std::vector<Integer<T> >{Integer<T>(0)};
 
-            std::vector<Integer<T> > a_digits((a.number() + n - 1).template cast<longest_type>() / n, Integer<T>(0));
+            std::vector<Integer<T> > a_digits((size_t)((a.number() + n - 1).template cast<longest_type>() / n), Integer<T>(0));
 
             if (a)
                 inner1(a_digits, a, Integer<T>(0), Integer<T>(a_digits.size()), n);
@@ -3997,7 +4158,7 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T>
                Integer<T> const& R, Integer<T> const& n) -> Integer<T>
     {
         if (L + 1 == R)
-           return digits[L];
+           return digits[(size_t)L];
 
         auto const mid((L + R) >> 1);
         auto const shift((mid - L) * n);
@@ -4103,63 +4264,63 @@ CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T>
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T> const& dividend, S const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Integer<T> const& dividend, S const& divisor)
 {
     return computeQrBurnikelZiegler(dividend, Integer<T>(divisor));
 }
 
 template <typename T, typename S>
-CONSTEXPR std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(S const& dividend, Integer<T> const& divisor)
+CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(S const& dividend, Integer<T> const& divisor)
 {
     return computeQrBurnikelZiegler(Integer<T>(dividend), divisor);
 }
 
-Integerc operator""_zc(char const* str)
+inline Integerc operator""_zc(char const* str)
 {
     return Integerc(str);
 }
 
-Integers operator""_zs(char const* str)
+inline Integers operator""_zs(char const* str)
 {
     return Integers(str);
 }
 
-Integeri operator""_zi(char const* str)
+inline Integeri operator""_zi(char const* str)
 {
     return Integeri(str);
 }
 
-Integerl operator""_zl(char const* str)
+inline Integerl operator""_zl(char const* str)
 {
     return Integerl(str);
 }
 
-Integerll operator""_zll(char const* str)
+inline Integerll operator""_zll(char const* str)
 {
     return Integerll(str);
 }
 
-Integer8 operator""_z8(char const* str)
+inline Integer8 operator""_z8(char const* str)
 {
     return Integer8(str);
 }
 
-Integer16 operator""_z16(char const* str)
+inline Integer16 operator""_z16(char const* str)
 {
     return Integer16(str);
 }
 
-Integer32 operator""_z32(char const* str)
+inline Integer32 operator""_z32(char const* str)
 {
     return Integer32(str);
 }
 
-Integer64 operator""_z64(char const* str)
+inline Integer64 operator""_z64(char const* str)
 {
     return Integer64(str);
 }
 
-Integer<uintmax_t> operator""_z(char const* str)
+inline Integer<uintmax_t> operator""_z(char const* str)
 {
     return Integer<uintmax_t>(str);
 }

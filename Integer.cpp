@@ -252,11 +252,6 @@ void Integer::invert() noexcept
         adjust();
 }
 
-CONSTEXPR bool Integer::isNegative() const noexcept
-{
-    return !isPositive_;
-}
-
 CONSTEXPR bool Integer::isPositive() const noexcept
 {
     return isPositive_;

@@ -39,12 +39,12 @@ class IntegerExpression
     public:
         static constexpr bool is_leaf = false;
 
-        CONSTEXPR bool isPositive() const
+        CONSTEXPR bool isPositive() const noexcept
         {
             return static_cast<E const&>(*this).isPositive();
         }
 
-        CONSTEXPR bool isNegative() const
+        CONSTEXPR bool isNegative() const noexcept
         {
             return !isPositive();
         }
@@ -283,7 +283,6 @@ class Integer : public IntegerExpression<Integer>
         Integer(std::string n, size_t base = 0);
         CONSTEXPR std::vector<uintmax_t> const& bits() const noexcept;
         void invert() noexcept;
-        CONSTEXPR bool isNegative() const noexcept;
         CONSTEXPR bool isPositive() const noexcept;
 
         template <typename S>

@@ -39,12 +39,12 @@ class IntegerExpression
     public:
         static constexpr bool is_leaf = false;
 
-        CONSTEXPR bool isPositive() const
+        CONSTEXPR bool isPositive() const noexcept
         {
             return static_cast<E const&>(*this).isPositive();
         }
 
-        CONSTEXPR bool isNegative() const
+        CONSTEXPR bool isNegative() const noexcept
         {
             return !isPositive();
         }
@@ -64,7 +64,7 @@ class IntegerExpression
             return static_cast<E const&>(*this).isInfinity();
         }
 
-        CONSTEXPR operator bool() const noexcept
+        CONSTEXPR explicit operator bool() const noexcept
         {
             return !!*this;
         }
@@ -435,16 +435,16 @@ class Integer : public IntegerExpression<Integer>
         Integer operator--(int);
         Integer& operator++();
         Integer operator++(int);
-        CONSTEXPR operator char() const noexcept;
-        CONSTEXPR operator unsigned char() const noexcept;
-        CONSTEXPR operator short() const noexcept;
-        CONSTEXPR operator unsigned short() const noexcept;
-        CONSTEXPR operator int() const noexcept;
-        CONSTEXPR operator unsigned int() const noexcept;
-        CONSTEXPR operator long() const noexcept;
-        CONSTEXPR operator unsigned long() const noexcept;
-        CONSTEXPR operator long long() const noexcept;
-        CONSTEXPR operator unsigned long long() const noexcept;
+        CONSTEXPR explicit operator char() const noexcept;
+        CONSTEXPR explicit operator unsigned char() const noexcept;
+        CONSTEXPR explicit operator short() const noexcept;
+        CONSTEXPR explicit operator unsigned short() const noexcept;
+        CONSTEXPR explicit operator int() const noexcept;
+        CONSTEXPR explicit operator unsigned int() const noexcept;
+        CONSTEXPR explicit operator long() const noexcept;
+        CONSTEXPR explicit operator unsigned long() const noexcept;
+        CONSTEXPR explicit operator long long() const noexcept;
+        CONSTEXPR explicit operator unsigned long long() const noexcept;
         CONSTEXPR bool isNan() const noexcept;
         void setNan() noexcept;
         CONSTEXPR bool isInfinity() const noexcept;
@@ -511,6 +511,18 @@ CONSTEXPR inline bool operator>=(S const& lhs, IntegerExpression<E> const& rhs) 
 }
 
 template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator<(IntegerExpression<E> const& rhs, S const& lhs) noexcept
+{
+    return rhs.operator<(Integer(lhs));
+}
+
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator<=(IntegerExpression<E> const& rhs, S const& lhs) noexcept
+{
+    return rhs.operator<=(Integer(lhs));
+}
+
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
 CONSTEXPR inline bool operator<(S const& lhs, IntegerExpression<E> const& rhs) noexcept
 {
     return rhs.operator>(Integer(lhs));
@@ -518,6 +530,18 @@ CONSTEXPR inline bool operator<(S const& lhs, IntegerExpression<E> const& rhs) n
 
 template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
 CONSTEXPR inline bool operator<=(S const& lhs, IntegerExpression<E> const& rhs) noexcept
+{
+    return rhs.operator>=(Integer(lhs));
+}
+
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator>(IntegerExpression<E> const& rhs, S const& lhs) noexcept
+{
+    return rhs.operator>(Integer(lhs));
+}
+
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator>=(IntegerExpression<E> const& rhs, S const& lhs) noexcept
 {
     return rhs.operator>=(Integer(lhs));
 }
@@ -1276,12 +1300,12 @@ class IntegerMul : public IntegerExpression<IntegerMul<E1, E2> >
                         //Karatsuba algorithm
                         //x = x1 * 2^m + x0
                         //y = y1 * 2^m + y0
-                        size_t n1{number(u_) / (sizeof(uintmax_t) * 8)};
+                        size_t n1{(size_t)number(u_) / (sizeof(uintmax_t) * 8)};
                         if (number(u_) % (sizeof(uintmax_t) * 8))
                             ++n1;
                         if (n1 % 2)
                             ++n1;
-                        size_t n2{number(v_) / (sizeof(uintmax_t) * 8)};
+                        size_t n2{(size_t)number(v_) / (sizeof(uintmax_t) * 8)};
                         if (number(v_) % (sizeof(uintmax_t) * 8))
                             ++n2;
                         if (n2 % 2)
@@ -1729,7 +1753,7 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
     {
         if (L + 1 == R)
         {
-            a_digits[L] = x;
+            a_digits[(size_t)L] = x;
             return;
         }
 
@@ -1750,7 +1774,7 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
             if (!a)
                 return std::vector<Integer>{Integer(0)};
 
-            std::vector<Integer> a_digits(((a.number() + n - 1) / n), Integer(0));
+            std::vector<Integer> a_digits((size_t)Integer((a.number() + n - 1) / n), Integer(0));
 
             if (a)
                 inner1(a_digits, a, Integer(0), Integer(a_digits.size()), n);
@@ -1767,7 +1791,7 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
                Integer const& R, Integer const& n) -> Integer
     {
         if (L + 1 == R)
-            return digits[L];
+            return digits[(size_t)L];
 
         auto const mid((L + R) >> 1);
         auto const shift((mid - L) * n);

@@ -715,13 +715,13 @@ class IntegerAnd : public IntegerExpression<IntegerAnd<E1, E2> >
             std::vector<uintmax_t> const other(u_.bits().size() > v_.bits().size() ? u_.bits() : v_.bits());
 
             auto threadFunc
+            {
+                [&bits, other] (size_t start, size_t end) -> void
                 {
-                    [&bits, other] (size_t start, size_t end) -> void
-                    {
-                        for (size_t i{start}; i < end; ++i)
-                            *(bits.rbegin() + i) &= *(other.rbegin() + i);
-                    }
-                };
+                    for (size_t i{start}; i < end; ++i)
+                        *(bits.rbegin() + i) &= *(other.rbegin() + i);
+                }
+            };
 
             size_t const numThreads{std::thread::hardware_concurrency()};
             size_t const chunkSize{std::min(u_.bits().size(), v_.bits().size()) / numThreads};
@@ -780,13 +780,13 @@ class IntegerOr : public IntegerExpression<IntegerOr<E1, E2> >
             std::vector<uintmax_t> const other(u_.bits().size() > v_.bits().size() ? v_.bits() : u_.bits());
 
             auto threadFunc
+            {
+                [&bits, other] (size_t start, size_t end) -> void
                 {
-                    [&bits, other] (size_t start, size_t end) -> void
-                    {
-                        for (size_t i{start}; i < end; ++i)
-                            *(bits.rbegin() + i) |= *(other.rbegin() + i);
-                    }
-                };
+                    for (size_t i{start}; i < end; ++i)
+                        *(bits.rbegin() + i) |= *(other.rbegin() + i);
+                }
+            };
 
             size_t const numThreads{std::thread::hardware_concurrency()};
             size_t const chunkSize{other.size() / numThreads};
@@ -845,13 +845,13 @@ class IntegerXor : public IntegerExpression<IntegerXor<E1, E2> >
             std::vector<uintmax_t> const other(u_.bits().size() > v_.bits().size() ? v_.bits() : u_.bits());
 
             auto threadFunc1
+            {
+                [&bits] (size_t start, size_t end) -> void
                 {
-                    [&bits] (size_t start, size_t end) -> void
-                    {
-                        for (size_t i{start}; i < end; ++i)
-                            *(bits.rbegin() + i) ^= 0;
-                    }
-                };
+                    for (size_t i{start}; i < end; ++i)
+                        *(bits.rbegin() + i) ^= 0;
+                }
+            };
 
             size_t const numThreads{std::thread::hardware_concurrency()};
             size_t const chunkSize{other.size() / numThreads};
@@ -869,13 +869,13 @@ class IntegerXor : public IntegerExpression<IntegerXor<E1, E2> >
                 t.join();
 
             auto threadFunc2
+            {
+                [&bits, other] (size_t start, size_t end) -> void
                 {
-                    [&bits, other] (size_t start, size_t end) -> void
-                    {
-                        for (size_t i{start}; i < end; ++i)
-                            *(bits.rbegin() + i) ^= *(other.rbegin() + i);
-                    }
-                };
+                    for (size_t i{start}; i < end; ++i)
+                        *(bits.rbegin() + i) ^= *(other.rbegin() + i);
+                }
+            };
 
             threads.clear();
 

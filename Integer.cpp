@@ -1,4 +1,5 @@
 #include <atomic>
+#include <mutex>
 #include <thread>
 
 #include "Integer.h"
@@ -261,135 +262,6 @@ CONSTEXPR bool Integer::isPositive() const noexcept
     return isPositive_;
 }
 
-bool Integer::operator>=(Integer const& other) const
-{
-    return operator>(other) || operator==(other);
-}
-
-bool Integer::operator>(Integer const& other) const
-{
-    if (!isPositive_ && other.isPositive_)
-        return false;
-    else if (isNan() || other.isNan())
-        return false;
-    else if (other.isInfinity())
-    {
-        if (other.isNegative())
-        {
-            if (isInfinity() && isNegative())
-                return false;
-            else
-                return true;
-        }
-        else
-            return false;
-    }
-
-    std::vector<uintmax_t> a(std::max(bits_.size(), other.bits_.size()), 0);
-    std::vector<uintmax_t> b{a};
-
-    std::copy(bits_.rbegin(), bits_.rend(), a.rbegin());
-    std::copy(other.bits_.rbegin(), other.bits_.rend(), b.rbegin());
-
-    auto const great{a > b};
-
-    return isPositive_ ? great : !great;
-}
-
-bool Integer::operator<=(Integer const& other) const
-{
-    return operator<(other) || operator==(other);
-}
-
-bool Integer::operator<(Integer const& other) const
-{
-    if (isPositive_ && !other.isPositive_)
-        return false;
-    else if (isNan() || other.isNan())
-        return false;
-    else if (other.isInfinity())
-    {
-        if (other.isPositive())
-        {
-            if (isInfinity() && isPositive())
-                return false;
-            else
-                return true;
-        }
-        else
-            return false;
-    }
-
-    std::vector<uintmax_t> a(std::max(bits_.size(), other.bits_.size()), 0);
-    std::vector<uintmax_t> b{a};
-
-    std::copy(bits_.rbegin(), bits_.rend(), a.rbegin());
-    std::copy(other.bits_.rbegin(), other.bits_.rend(), b.rbegin());
-
-    auto const less{a < b};
-
-    return isPositive_ ? less : !less;
-}
-
-CONSTEXPR bool Integer::operator==(Integer const& other) const noexcept
-{
-    if (isNan() && other.isNan())
-        return true;
-    else if (isNan() || other.isNan())
-        return false;
-    else if (isInfinity() && other.isInfinity())
-        return (isPositive() == other.isPositive());
-    else if (isInfinity() || other.isInfinity())
-        return false;
-
-    if (bits_.size() != other.bits_.size())
-    {
-        if (bits_.size() > other.bits_.size())
-        {
-            for (size_t i{0}; i < bits_.size() - other.bits_.size(); ++i)
-            {
-                if (bits_[i])
-                    return false;
-            }
-        }
-        else
-        {
-            for (size_t i{0}; i < other.bits_.size() - bits_.size(); ++i)
-            {
-                if (other.bits_[i])
-                    return false;
-            }
-        }
-    }
-
-    bool zero{true};
-
-    auto it1{bits_.rbegin()};
-    auto it2{other.bits_.rbegin()};
-
-    for (size_t i{0}; i < std::min(bits_.size(), other.bits_.size()); ++i)
-    {
-        if (*it1 != *it2)
-            return false;
-
-        if (*it1)
-            zero = false;
-
-        ++it1;
-        ++it2;
-    }
-
-    if (isPositive_ != other.isPositive_ && !zero)
-        return false;
-
-    return true;
-}
-
-CONSTEXPR bool Integer::operator!=(Integer const& other) const
-{
-    return !operator==(other);
-}
-
 Integer Integer::operator-() const
 {
     auto x(*this);
@@ -411,17 +283,6 @@ Integer Integer::operator~() const
 Integer::operator bool() const noexcept
 {
     return !!*this;
-}
-
-bool Integer::operator!() const noexcept
-{
-    for (auto const& b : bits_)
-    {
-        if (b)
-            return false;
-    }
-
-    return true;
 }
 
 Integer& Integer::operator--()
@@ -560,7 +421,7 @@ std::string Integer::toString(size_t base) const
                 s = "0";
 
             auto const n{static_cast<uintmax_t>(std::log10(static_cast<uintmax_t>(~uintmax_t{0})))};
-            uintmax_t const b(pow(uintmax_t{10}, n));
+            uintmax_t const b(pow(Integer(10), n));
 
             while (number)
             {
@@ -1218,10 +1079,42 @@ Integer Integer::previousPrime() const
     else
         --n;
 
-    while (!n.isPrime())
-        n -= 2;
+    std::mutex mutex;
+    Integer p(0);
 
-    return n;
+    auto threadFunc
+    {
+        [this, &p, n, &mutex] (size_t start, size_t size) -> void
+        {
+            Integer number{n};
+            
+            while (p < number)
+            {
+                number = n - start * 2;
+                
+                if (number.isPrime())
+                {
+                    mutex.lock();
+                    if (number > p)
+                        p = number;
+                    mutex.unlock();
+                }
+                else
+                    start += size;
+            }
+        }
+    };
+
+    size_t const numThreads{std::thread::hardware_concurrency()};
+    std::vector<std::thread> threads;
+
+    for (size_t i{0}; i < numThreads; ++i)
+        threads.emplace_back(threadFunc, i + 1, numThreads);
+
+    for (auto& t : threads)
+        t.join();
+
+    return p;
 }
 
 Integer Integer::nextPrime() const
@@ -1252,10 +1145,42 @@ Integer Integer::nextPrime() const
     else
         ++n;
 
-    while (!n.isPrime())
-        n += 2;
+    std::mutex mutex;
+    Integer p(Integer::infinity());
 
-    return n;
+    auto threadFunc
+    {
+        [this, &p, n, &mutex] (size_t start, size_t size) -> void
+        {
+            Integer number{n};
+            
+            while (number < p)
+            {
+                number = n + start * 2;
+                
+                if (number.isPrime())
+                {
+                    mutex.lock();
+                    if (number < p)
+                        p = number;
+                    mutex.unlock();
+                }
+                else
+                    start += size;
+            }
+        }
+    };
+
+    size_t const numThreads{std::thread::hardware_concurrency()};
+    std::vector<std::thread> threads;
+
+    for (size_t i{0}; i < numThreads; ++i)
+        threads.emplace_back(threadFunc, i + 1, numThreads);
+
+    for (auto& t : threads)
+        t.join();
+
+    return p;
 }
 
 size_t Integer::size() const noexcept

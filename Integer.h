@@ -71,43 +71,148 @@ class IntegerExpression
 
         CONSTEXPR bool operator!() const noexcept
         {
-            return !static_cast<E const&>(*this);
+            for (auto const& b : bits())
+            {
+                if (b)
+                    return false;
+            }
+
+            return true;
         }
 
         template <typename T>
-        CONSTEXPR bool operator==(T const& other) const
+        CONSTEXPR bool operator==(IntegerExpression<T> const& other) const
         {
-            return static_cast<E const&>(*this).operator==(other);
+            if (isNan() && other.isNan())
+                return true;
+            else if (isNan() || other.isNan())
+                return false;
+            else if (isInfinity() && other.isInfinity())
+                return (isPositive() == other.isPositive());
+            else if (isInfinity() || other.isInfinity())
+                return false;
+
+            if (bits().size() != other.bits().size())
+            {
+                if (bits().size() > other.bits().size())
+                {
+                    for (size_t i{0}; i < bits().size() - other.bits().size(); ++i)
+                    {
+                        if (bits()[i])
+                            return false;
+                    }
+                }
+                else
+                {
+                    for (size_t i{0}; i < other.bits().size() - bits().size(); ++i)
+                    {
+                        if (other.bits()[i])
+                            return false;
+                    }
+                }
+            }
+
+            bool zero{true};
+
+            auto it1{bits().rbegin()};
+            auto it2{other.bits().rbegin()};
+
+            for (size_t i{0}; i < std::min(bits().size(), other.bits().size()); ++i)
+            {
+                if (*it1 != *it2)
+                    return false;
+
+                if (*it1)
+                    zero = false;
+
+                ++it1;
+                ++it2;
+            }
+
+            if (isPositive() != other.isPositive() && !zero)
+                return false;
+
+            return true;
         }
 
         template <typename T>
-        CONSTEXPR bool operator!=(T const& other) const
+        CONSTEXPR bool operator!=(IntegerExpression<T> const& other) const
         {
-            return static_cast<E const&>(*this).operator!=(other);
+            return !operator==(other);
         }
 
         template <typename T>
-        CONSTEXPR bool operator<=(T const& other) const
+        CONSTEXPR bool operator<=(IntegerExpression<T> const& other) const
         {
-            return static_cast<E const&>(*this).operator<=(other);
+            return operator<(other) || operator==(other);
         }
 
         template <typename T>
-        CONSTEXPR bool operator>=(T const& other) const
+        CONSTEXPR bool operator>=(IntegerExpression<T> const& other) const
         {
-            return static_cast<E const&>(*this).operator>=(other);
+            return operator>(other) || operator==(other);
         }
 
         template <typename T>
-        CONSTEXPR bool operator<(T const& other) const
+        CONSTEXPR bool operator<(IntegerExpression<T> const& other) const
         {
-            return static_cast<E const&>(*this).operator<(other);
+            if (isPositive() && !other.isPositive())
+                return false;
+            else if (isNan() || other.isNan())
+                return false;
+            else if (other.isInfinity())
+            {
+                if (other.isPositive())
+                {
+                    if (isInfinity() && isPositive())
+                        return false;
+                    else
+                        return true;
+                }
+                else
+                    return false;
+            }
+
+            std::vector<uintmax_t> a(std::max(bits().size(), other.bits().size()), 0);
+            std::vector<uintmax_t> b{a};
+
+            std::copy(bits().rbegin(), bits().rend(), a.rbegin());
+            std::copy(other.bits().rbegin(), other.bits().rend(), b.rbegin());
+
+            auto const less{a < b};
+
+            return isPositive() ? less : !less;
         }
 
         template <typename T>
-        CONSTEXPR bool operator>(T const& other) const
+        CONSTEXPR bool operator>(IntegerExpression<T> const& other) const
         {
-            return static_cast<E const&>(*this).operator>(other);
+            if (!isPositive() && other.isPositive())
+                return false;
+            else if (isNan() || other.isNan())
+                return false;
+            else if (other.isInfinity())
+            {
+                if (other.isNegative())
+                {
+                    if (isInfinity() && isNegative())
+                        return false;
+                    else
+                        return true;
+                }
+                else
+                    return false;
+            }
+
+            std::vector<uintmax_t> a(std::max(bits().size(), other.bits().size()), 0);
+            std::vector<uintmax_t> b{a};
+
+            std::copy(bits().rbegin(), bits().rend(), a.rbegin());
+            std::copy(other.bits().rbegin(), other.bits().rend(), b.rbegin());
+
+            auto const great{a > b};
+
+            return isPositive() ? great : !great;
         }
 
         template <typename S>
@@ -347,31 +452,24 @@ class Integer : public IntegerExpression<Integer>
             return n;
         }
 
-        bool operator>=(Integer const& other) const;
-        bool operator>(Integer const& other) const;
-        bool operator<=(Integer const& other) const;
-        bool operator<(Integer const& other) const;
-        CONSTEXPR bool operator==(Integer const& other) const noexcept;
-        CONSTEXPR bool operator!=(Integer const& other) const;
         Integer operator-() const;
         Integer operator~() const;
         explicit operator bool() const noexcept;
-        bool operator!() const noexcept;
         Integer& operator--();
         Integer operator--(int);
         Integer& operator++();
         Integer operator++(int);
         std::string toString(size_t base = 10) const;
-        CONSTEXPR explicit operator char() const noexcept;
-        CONSTEXPR explicit operator unsigned char() const noexcept;
-        CONSTEXPR explicit operator short() const noexcept;
-        CONSTEXPR explicit operator unsigned short() const noexcept;
-        CONSTEXPR explicit operator int() const noexcept;
-        CONSTEXPR explicit operator unsigned int() const noexcept;
-        CONSTEXPR explicit operator long() const noexcept;
-        CONSTEXPR explicit operator unsigned long() const noexcept;
-        CONSTEXPR explicit operator long long() const noexcept;
-        CONSTEXPR explicit operator unsigned long long() const noexcept;
+        CONSTEXPR operator char() const noexcept;
+        CONSTEXPR operator unsigned char() const noexcept;
+        CONSTEXPR operator short() const noexcept;
+        CONSTEXPR operator unsigned short() const noexcept;
+        CONSTEXPR operator int() const noexcept;
+        CONSTEXPR operator unsigned int() const noexcept;
+        CONSTEXPR operator long() const noexcept;
+        CONSTEXPR operator unsigned long() const noexcept;
+        CONSTEXPR operator long long() const noexcept;
+        CONSTEXPR operator unsigned long long() const noexcept;
         CONSTEXPR bool isNan() const noexcept;
         void setNan() noexcept;
         CONSTEXPR bool isInfinity() const noexcept;
@@ -501,6 +599,16 @@ class Integer : public IntegerExpression<Integer>
         bool autoAdjust_{true};
 };
 
+inline Integer const& min(Integer const& a, Integer const& b)
+{
+    return a < b ? a : b;
+}
+
+inline Integer const& max(Integer const& a, Integer const& b)
+{
+    return a > b ? a : b;
+}
+
 inline Integer number(Integer const& n) noexcept
 {
     return n.number();
@@ -524,40 +632,52 @@ inline std::string Integer::cast<std::string>() const
     return toString();
 }
 
-template <typename S>
-CONSTEXPR inline bool operator>(S const& lhs, Integer const& rhs) noexcept
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator>(S const& lhs, IntegerExpression<E> const& rhs) noexcept
 {
     return rhs.operator<(Integer(lhs));
 }
 
-template <typename S>
-CONSTEXPR inline bool operator>=(S const& lhs, Integer const& rhs) noexcept
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator>=(S const& lhs, IntegerExpression<E> const& rhs) noexcept
 {
     return rhs.operator<=(Integer(lhs));
 }
 
-template <typename S>
-CONSTEXPR inline bool operator<(S const& lhs, Integer const& rhs) noexcept
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator<(S const& lhs, IntegerExpression<E> const& rhs) noexcept
 {
     return rhs.operator>(Integer(lhs));
 }
 
-template <typename S>
-CONSTEXPR inline bool operator<=(S const& lhs, Integer const& rhs) noexcept
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator<=(S const& lhs, IntegerExpression<E> const& rhs) noexcept
 {
     return rhs.operator>=(Integer(lhs));
 }
 
-template <typename S>
-CONSTEXPR inline bool operator==(S const& lhs, Integer const& rhs) noexcept
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator==(S const& lhs, IntegerExpression<E> const& rhs) noexcept
 {
     return rhs.operator==(Integer(lhs));
 }
 
-template <typename S>
-CONSTEXPR inline bool operator!=(S const& lhs, Integer const& rhs) noexcept
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator!=(S const& lhs, IntegerExpression<E> const& rhs) noexcept
 {
     return rhs.operator!=(Integer(lhs));
+}
+
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator==(IntegerExpression<E> const& lhs, S const& rhs) noexcept
+{
+    return lhs.operator==(Integer(rhs));
+}
+
+template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
+CONSTEXPR inline bool operator!=(IntegerExpression<E> const& lhs, S const& rhs) noexcept
+{
+    return lhs.operator!=(Integer(rhs));
 }
 
 inline std::ostream& operator<<(std::ostream& os, Integer const& n)
@@ -593,7 +713,7 @@ class IntegerAnd : public IntegerExpression<IntegerAnd<E1, E2> >
             else
                 bits.insert(bits.end(), u_.bits().begin(), u_.bits().end());
 
-            std::vector<uintmax_t> const other(u_.bits().size() > v_.bits().size() ? v_.bits() : u_.bits());
+            std::vector<uintmax_t> const other(u_.bits().size() > v_.bits().size() ? u_.bits() : v_.bits());
 
             auto threadFunc
                 {
@@ -605,13 +725,13 @@ class IntegerAnd : public IntegerExpression<IntegerAnd<E1, E2> >
                 };
 
             size_t const numThreads{std::thread::hardware_concurrency()};
-            size_t const chunkSize{other.size() / numThreads};
+            size_t const chunkSize{std::min(u_.bits().size(), v_.bits().size()) / numThreads};
             std::vector<std::thread> threads;
 
             for (size_t i{0}; i < numThreads; ++i)
             {
                 size_t const start{i * chunkSize};
-                size_t const end{(i == numThreads - 1) ? other.size() : (i + 1) * chunkSize};
+                size_t const end{(i == numThreads - 1) ? std::min(u_.bits().size(), v_.bits().size()) : (i + 1) * chunkSize};
                 threads.emplace_back(threadFunc, start, end);
             }
 
@@ -1268,9 +1388,6 @@ class IntegerMul : public IntegerExpression<IntegerMul<E1, E2> >
                             Integer const y0((static_cast<uintmax_t>(~uintmax_t{0}) >> (sizeof(uintmax_t) * 8 - m)) & b);
                             Integer const y1((((static_cast<uintmax_t>(~uintmax_t{0}) >> (sizeof(uintmax_t) * 8 - m)) << m) & b) >> m);
 
-                            assert(*this == ((x1 << m) | x0));
-                            assert(other == ((y1 << m) | y0));
-
                             auto const z0(IntegerMul<Integer, Integer>(x0, y0));
                             auto const z1(IntegerMul<Integer, Integer>(x1, y0)
                                           + IntegerMul<Integer, Integer>(x0, y1));
@@ -1826,13 +1943,13 @@ inline Integer pow(Integer base, Integer exp)
     return result;
 }
 
-template <typename S>
+template <typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
 CONSTEXPR inline Integer pow(Integer const& base, S const& exp)
 {
     return pow(base, Integer(exp));
 }
 
-template <typename S>
+template <typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
 CONSTEXPR inline Integer pow(S const& base, Integer const& exp)
 {
     return pow(Integer(base), exp);
@@ -1897,7 +2014,7 @@ inline Integer powm(Integer base, Integer exp, Integer const& mod)
     return result;
 }
 
-template <typename S, typename U>
+template <typename S, typename U, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr, typename std::enable_if_t<std::is_standard_layout_v<U> && std::is_trivial_v<U> >* = nullptr>
 CONSTEXPR inline Integer powm(Integer const& base, S const& exp, U const& mod)
 {
     return powm(base, Integer(exp), Integer(mod));
@@ -2437,7 +2554,7 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
     {
         if (L + 1 == R)
         {
-            a_digits[(size_t)L] = x;
+            a_digits[L] = x;
             return;
         }
 
@@ -2475,7 +2592,7 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
                   Integer const& R, Integer const& n) -> Integer
     {
         if (L + 1 == R)
-            return digits[(size_t)L];
+            return digits[L];
 
         auto const mid((L + R) >> 1);
         auto const shift((mid - L) * n);

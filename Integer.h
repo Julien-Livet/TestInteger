@@ -257,33 +257,9 @@ class Integer : public IntegerExpression<Integer>
             adjust();
         }
 
-        template <size_t N>
-        CONSTEXPR Integer(std::bitset<N> const& bits, bool isPositive = true) : isPositive_{isPositive}
-        {
-            setBits(0, bits);
-        }
-
-        template <class InputIt>
-        CONSTEXPR Integer(InputIt begin, InputIt end, bool isPositive = true) : isPositive_{isPositive}, bits_{begin, end}
-        {
-            if (bits_.empty())
-                bits_.emplace_back(0);
-
-            adjust();
-        }
-
         Integer(std::vector<uintmax_t> const& bits, bool isPositive = true);
-        Integer(std::initializer_list<uintmax_t> const& bits, bool isPositive = true);
-
-#ifdef WITH_GMP
-        Integer(mpz_class const& n);
-#endif
-
-        Integer(char const* n, size_t base = 0);
-        Integer(std::string n, size_t base = 0);
         CONSTEXPR std::vector<uintmax_t> const& bits() const noexcept;
         void invert() noexcept;
-        CONSTEXPR bool isNegative() const noexcept;
         CONSTEXPR bool isPositive() const noexcept;
 
         template <typename S>
@@ -459,7 +435,6 @@ class Integer : public IntegerExpression<Integer>
         Integer operator--(int);
         Integer& operator++();
         Integer operator++(int);
-        std::string toString(size_t base = 10) const;
         CONSTEXPR operator char() const noexcept;
         CONSTEXPR operator unsigned char() const noexcept;
         CONSTEXPR operator short() const noexcept;
@@ -475,65 +450,6 @@ class Integer : public IntegerExpression<Integer>
         CONSTEXPR bool isInfinity() const noexcept;
         void setInfinity() noexcept;
         Integer abs() const;
-        size_t precision() const noexcept;
-        void setPrecision(size_t precision);
-
-        template <typename URNG>
-        CONSTEXPR void setRandom()
-        {
-            isNan_ = false;
-            isInfinity_ = false;
-
-            URNG g;
-
-            isPositive_ = g() % 2;
-
-            auto threadFunc
-            {
-                [this] (size_t start, size_t end) -> void
-                {
-                    URNG g;
-
-                    for (size_t i{start}; i < end; ++i)
-                    {
-                        auto const n{g()};
-
-                        if (sizeof(uintmax_t) <= sizeof(n))
-                            this->bits_[i] = static_cast<uintmax_t>(n);
-                        else
-                        {
-                            this->bits_[i] = 0;
-
-                            auto const jMax{sizeof(uintmax_t) / sizeof(n)};
-
-                            for (size_t j{0}; j < jMax; ++j)
-                            {
-                                this->bits_[i] <<= sizeof(n) * 8;
-                                this->bits_[i] |= g();
-                            }
-                        }
-                    }
-                }
-            };
-
-            size_t const numThreads{std::thread::hardware_concurrency()};
-            size_t const chunkSize{bits_.size() / numThreads};
-            std::vector<std::thread> threads;
-
-            for (size_t i{0}; i < numThreads; ++i)
-            {
-                size_t const start{i * chunkSize};
-                size_t const end{(i == numThreads - 1) ? bits_.size() : (i + 1) * chunkSize};
-                threads.emplace_back(threadFunc, start, end);
-            }
-
-            for (auto& t : threads)
-                t.join();
-        }
-
-        int isPrime(size_t reps = 50) const;
-        CONSTEXPR void setPositive();
-        CONSTEXPR void setNegative();
 
         static Integer nan()
         {
@@ -551,25 +467,7 @@ class Integer : public IntegerExpression<Integer>
             return n;
         }
 
-        bool bit(size_t n) const noexcept;
-        void setBit(size_t n, bool bit);
-        uintmax_t bits(size_t n) const noexcept;
-        void setBits(size_t n, uintmax_t const& bits);
-
-        template <size_t N>
-        CONSTEXPR void setBits(size_t n, std::bitset<N> const& bits)
-        {
-            for (size_t i{0}; i < bits.size(); ++i)
-                setBit(n + i, bits[i]);
-
-            if (autoAdjust_)
-                adjust();
-        }
-
-        size_t count() const noexcept;
         Integer number() const noexcept;
-        bool isEven() const noexcept;
-        bool isOdd() const noexcept;
 
         template <typename S>
         CONSTEXPR bool fits() const
@@ -578,12 +476,8 @@ class Integer : public IntegerExpression<Integer>
         }
 
         Integer sign() const;
-        CONSTEXPR void setSign(Integer const& other) noexcept;
-        Integer previousPrime() const;
-        Integer nextPrime() const;
         size_t size() const noexcept;
         void adjust();
-        bool isCoprime(Integer const& other) const noexcept;
         CONSTEXPR bool autoAdjust() const noexcept;
         CONSTEXPR void setAutoAdjust(bool autoAdjust) noexcept;
         char const* data() const noexcept;
@@ -599,37 +493,9 @@ class Integer : public IntegerExpression<Integer>
         bool autoAdjust_{true};
 };
 
-inline Integer const& min(Integer const& a, Integer const& b)
-{
-    return a < b ? a : b;
-}
-
-inline Integer const& max(Integer const& a, Integer const& b)
-{
-    return a > b ? a : b;
-}
-
 inline Integer number(Integer const& n) noexcept
 {
     return n.number();
-}
-
-#ifdef WITH_GMP
-template <>
-inline mpz_class Integer::cast<mpz_class>() const
-{
-    auto s{toString(2)};
-
-    s.replace(s.find("0b"), 2, "");
-
-    return mpz_class{s, 2};
-}
-#endif
-
-template <>
-inline std::string Integer::cast<std::string>() const
-{
-    return toString();
 }
 
 template <typename E, typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
@@ -678,11 +544,6 @@ template <typename E, typename S, typename std::enable_if_t<std::is_standard_lay
 CONSTEXPR inline bool operator!=(IntegerExpression<E> const& lhs, S const& rhs) noexcept
 {
     return lhs.operator!=(Integer(rhs));
-}
-
-inline std::ostream& operator<<(std::ostream& os, Integer const& n)
-{
-    return os << n.toString();
 }
 
 inline Integer abs(Integer const& n)
@@ -1802,692 +1663,6 @@ CONSTEXPR inline decltype(auto) operator%(T const& lhs, IntegerExpression<E> con
     return IntegerMod<Integer, E>(Integer(lhs), *static_cast<const E *>(&rhs));
 }
 
-inline Integer gcd(Integer const& a, Integer const& b)
-{
-    if (a.isNan() || b.isNan() || a.isInfinity() || b.isInfinity())
-        return Integer::nan();
-
-    if (a < 0)
-        return gcd(a.abs(), b);
-
-    if (b < 0)
-        return gcd(a, b.abs());
-
-    if (a < b)
-        return gcd(b, a);
-
-    if (!a)
-        return b;
-
-    if (!b)
-        return a;
-
-    if (a.isEven() && b.isEven())
-        return 2 * gcd(a >> 1, b >> 1);
-    else if (a.isOdd() && b.isEven())
-        return gcd(a, Integer(b >> 1));
-    else if (a.isEven() && b.isOdd())
-        return gcd(Integer(a >> 1), b);
-    else //if (a.isOdd() && b.isOdd())
-        return gcd(Integer((a - b) >> 1), b);
-}
-
-template <typename S>
-CONSTEXPR inline Integer gcd(Integer const& a, S const& b)
-{
-    return gcd(a, Integer(b));
-}
-
-template <typename S>
-CONSTEXPR inline Integer gcd(S const& a, Integer const& b)
-{
-    return gcd(Integer(a), b);
-}
-
-inline Integer lcm(Integer const& a, Integer const& b)
-{
-    return abs(Integer(a * b)) / gcd(a, b);
-}
-
-template <typename S>
-CONSTEXPR inline Integer lcm(Integer const& a, S const& b)
-{
-    return lcm(a, Integer(b));
-}
-
-template <typename S>
-CONSTEXPR inline Integer lcm(S const& a, Integer const& b)
-{
-    return lcm(Integer(a), b);
-}
-
-inline Integer gcdExtended(Integer a, Integer b, Integer& u, Integer& v)
-{
-    if (a.isNan() || b.isNan() || a.isInfinity() || b.isInfinity())
-    {
-        u.setNan();
-        v.setNan();
-
-        return Integer::nan();
-    }
-
-    if (!a && !b)
-        return Integer(0);
-
-    Integer r1(a), u1(1), v1(0);
-    Integer r2(b), u2(0), v2(1);
-    Integer q, r_temp, u_temp, v_temp;
-
-    while (r2 != 0)
-    {
-        q = r1 / r2;
-        r_temp = r1 - q * r2;
-        u_temp = u1 - q * u2;
-        v_temp = v1 - q * v2;
-
-        r1 = r2;
-        u1 = u2;
-        v1 = v2;
-        r2 = r_temp;
-        u2 = u_temp;
-        v2 = v_temp;
-    }
-
-    u = u1;
-    v = v1;
-
-    return r1;
-}
-
-template <typename S1, typename S2>
-CONSTEXPR inline Integer gcdExtended(S1 const& a, S2 const& b, Integer& u, Integer& v)
-{
-    return gcdExtended(Integer(a), Integer(b), u, v);
-}
-
-inline Integer pow(Integer base, Integer exp)
-{
-    assert(exp >= 0);
-
-    if (base.isInfinity() || base.isNan())
-        return base;
-    else if (exp.isNan() || exp.isInfinity())
-        return exp;
-    else if (base < 0)
-    {
-        auto n(pow(base.abs(), exp));
-
-        if (exp & 1)
-            n = -n;
-
-        return n;
-    }
-    else if (base == 2)
-        return Integer(1) << exp;
-
-    Integer result(1);
-
-    for (;;)
-    {
-        if (exp & 1)
-            result *= base;
-
-        exp >>= 1;
-
-        if (!exp)
-            break;
-
-        base *= base;
-    }
-
-    return result;
-}
-
-template <typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
-CONSTEXPR inline Integer pow(Integer const& base, S const& exp)
-{
-    return pow(base, Integer(exp));
-}
-
-template <typename S, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
-CONSTEXPR inline Integer pow(S const& base, Integer const& exp)
-{
-    return pow(Integer(base), exp);
-}
-
-inline Integer factorial(Integer const& n)
-{
-    if (n.isNan() || n.isInfinity())
-        return n;
-
-    assert(n >= 0);
-
-    if (n == 0)
-        return Integer(1);
-
-    return n * factorial(n - 1);
-}
-
-inline Integer doubleFactorial(Integer const& n)
-{
-    return factorial(factorial(n));
-}
-
-inline Integer multiFactorial(Integer const& n, Integer const& m)
-{
-    return pow(factorial(n), m);
-}
-
-template <typename S>
-CONSTEXPR inline Integer multiFactorial(Integer const& n, S const& m)
-{
-    return multiFactorial(n, Integer(m));
-}
-
-template <typename S>
-CONSTEXPR inline Integer multiFactorial(S const& n, Integer const& m)
-{
-    return multiFactorial(Integer(n), m);
-}
-
-inline Integer powm(Integer base, Integer exp, Integer const& mod)
-{
-    assert(exp >= 0);
-
-    Integer result(1);
-    Integer base_mod(base % mod);
-
-    while (exp > 0)
-    {
-        if ((exp & 1) == 1)
-        {
-            result *= base_mod;
-            result %= mod;
-        }
-
-        base_mod *= base_mod;
-        base_mod %= mod;
-
-        exp >>= 1;
-    }
-
-    return result;
-}
-
-template <typename S, typename U, typename std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr, typename std::enable_if_t<std::is_standard_layout_v<U> && std::is_trivial_v<U> >* = nullptr>
-CONSTEXPR inline Integer powm(Integer const& base, S const& exp, U const& mod)
-{
-    return powm(base, Integer(exp), Integer(mod));
-}
-
-inline std::pair<Integer, Integer> computeQr(Integer const& dividend, Integer const& divisor)
-{
-    if (!divisor)
-        return {Integer::nan(), Integer::nan()};
-    else if (!dividend)
-        return {Integer{0}, Integer{0}};
-    else if (dividend.isNan())
-        return {dividend, dividend};
-    else if (divisor.isNan())
-        return {divisor, divisor};
-    else if (dividend.isInfinity() || divisor.isInfinity())
-        return {Integer::nan(), Integer::nan()};
-    else if (divisor.abs() > dividend.abs())
-        return {Integer{0}, dividend};
-    else if (dividend < 0 && divisor < 0)
-    {
-        auto qr{computeQr(-dividend, -divisor)};
-
-        if (qr.second)
-        {
-            ++qr.first;
-            qr.second += divisor;
-        }
-
-        return qr;
-    }
-    else if (dividend > 0 && divisor < 0)
-    {
-        auto qr{computeQr(dividend, -divisor)};
-
-        qr.first = -qr.first;
-
-        if (qr.second)
-        {
-            qr.first -= 1;
-            qr.second += divisor;
-        }
-
-        return qr;
-    }
-    else if (dividend < 0 && divisor > 0)
-    {
-        auto qr{computeQr(-dividend, divisor)};
-
-        qr.first = -qr.first;
-
-        if (qr.second)
-        {
-            qr.first -= 1;
-            qr.second = divisor - qr.second;
-        }
-
-        return qr;
-    }
-
-    Integer start(1);
-    auto end(dividend);
-
-    while (start <= end)
-    {
-        Integer mid(end + start);
-        mid >>= 1;
-
-        Integer n(dividend - divisor * mid);
-
-        if (n > divisor)
-            start = mid + 1;
-        else if (n < 0)
-            end = mid - 1;
-        else
-        {
-            if (n == divisor)
-            {
-                ++mid;
-                n = 0;
-            }
-
-            return {Integer(mid), n};
-        }
-    }
-
-    return {Integer(0), dividend};
-}
-
-template <typename S>
-CONSTEXPR inline std::pair<Integer, Integer> computeQr(Integer const& dividend, S const& divisor)
-{
-    return computeQr(dividend, Integer(divisor));
-}
-
-template <typename S>
-CONSTEXPR inline std::pair<Integer, Integer> computeQr(S const& dividend, Integer const& divisor)
-{
-    return computeQr(Integer(dividend), divisor);
-}
-
-inline Integer computeQuotient(Integer const& dividend, Integer const& divisor)
-{
-    if (!divisor)
-        return Integer::nan();
-    else if (!dividend)
-        return Integer{0};
-    else if (dividend.isNan())
-        return dividend;
-    else if (divisor.isNan())
-        return divisor;
-    else if (dividend.isInfinity() || divisor.isInfinity())
-        return Integer::nan();
-    else if (divisor.abs() > dividend.abs())
-        return Integer{0};
-    else if (dividend < 0 && divisor < 0)
-        return computeQuotient(-dividend, -divisor);
-    else if (dividend > 0 && divisor < 0)
-        return -computeQuotient(dividend, -divisor);
-    else if (dividend < 0 && divisor > 0)
-        return -computeQuotient(-dividend, divisor);
-
-    Integer start(1);
-    auto end(dividend);
-
-    while (start <= end)
-    {
-        Integer mid(end + start);
-        mid >>= 1;
-
-        Integer n(dividend - divisor * mid);
-
-        if (n > divisor)
-            start = mid + 1;
-        else if (n < 0)
-            end = mid - 1;
-        else
-        {
-            if (n == divisor)
-            {
-                ++mid;
-                n = 0;
-            }
-
-            return mid;
-        }
-    }
-
-    return Integer(0);
-}
-
-template <typename S>
-CONSTEXPR inline Integer computeQuotient(Integer const& dividend, S const& divisor)
-{
-    return computeQuotient(dividend, Integer(divisor));
-}
-
-template <typename S>
-CONSTEXPR inline Integer computeQuotient(S const& dividend, Integer const& divisor)
-{
-    return computeQuotient(Integer(dividend), divisor);
-}
-
-template <typename S>
-CONSTEXPR inline Integer fibonacci(Integer n)
-{
-    assert(n >= 0);
-
-    if (!n)
-        return 0;
-    else if (n == 1)
-        return 1;
-
-    n -= 1;
-
-    Integer fn_2(0);
-    Integer fn_1(1);
-    Integer fn;
-
-    while (n)
-    {
-        fn = fn_1 + fn_2;
-        fn_2 = fn_1;
-        fn_1 = fn;
-        --n;
-    }
-
-    return fn;
-}
-
-inline Integer primorial(Integer n)
-{
-    Integer result(1);
-    Integer number(2);
-
-    while (number <= n)
-    {
-        result *= number;
-        number = number.nextPrime();
-    }
-
-    return result;
-}
-
-inline int legendre(Integer const& a, Integer const& p)
-{
-    assert(p.isPrime());
-
-    if (!(a % p))
-        return 0;
-    else
-    {
-        bool isResidue{false};
-
-        if (p == 2)
-            isResidue = true;
-        else
-            isResidue = (powm(a, (p - 1) / 2, p) == 1);
-
-        if (isResidue)
-            return 1;
-        else
-            return -1;
-    }
-}
-
-template <typename S>
-CONSTEXPR inline Integer legendre(Integer const& a, S const& p)
-{
-    return legendre(a, Integer(p));
-}
-
-template <typename S>
-CONSTEXPR inline Integer legendre(S const& a, Integer const& p)
-{
-    return legendre(Integer(a), p);
-}
-
-inline int jacobi(Integer const& a, Integer n)
-{
-    assert(n > 0 && n.isOdd());
-
-    int result(1);
-    Integer prime(2);
-
-    while (n != 1)
-    {
-        if (!(n % prime))
-        {
-            n /= prime;
-            result *= legendre(a, prime);
-        }
-        else
-            prime = prime.nextPrime();
-    }
-
-    return result;
-}
-
-template <typename S>
-CONSTEXPR inline int jacobi(Integer const& a, S const& n)
-{
-    return jacobi(a, Integer(n));
-}
-
-template <typename S>
-CONSTEXPR inline int jacobi(S const& a, Integer const& n)
-{
-    return jacobi(Integer(a), n);
-}
-
-CONSTEXPR inline int kronecker(Integer const& a, Integer const& b)
-{
-    if (a == b)
-        return 1;
-    else
-        return 0;
-}
-
-template <typename S>
-CONSTEXPR inline int kronecker(Integer const& a, S const& b)
-{
-    return kronecker(a, Integer(b));
-}
-
-template <typename S>
-CONSTEXPR inline int kronecker(S const& a, Integer const& b)
-{
-    return kronecker(Integer(a), b);
-}
-
-inline Integer binomial(Integer const& n, Integer const& k)
-{
-    assert(n >= 0 && k >= 0);
-
-    return factorial(n) / (factorial(k) * factorial(n - k));
-}
-
-template <typename S>
-CONSTEXPR inline Integer binomial(Integer const& n, S const& k)
-{
-    return binomial(n, Integer(k));
-}
-
-template <typename S>
-CONSTEXPR inline Integer binomial(S const& n, Integer const& k)
-{
-    return binomial(Integer(n), k);
-}
-
-inline Integer sqrt(Integer const& n)
-{
-    if (n < 0)
-        return Integer::nan();
-    else if (!n || n == 1 || n.isNan() || n.isInfinity())
-        return n;
-
-    Integer lo(1), hi(n);
-    Integer res(1);
-
-    while (lo <= hi)
-    {
-        Integer mid(lo + hi);
-        mid >>= 1;
-
-        if (mid * mid <= n)
-        {
-            res = mid;
-            lo = mid + 1;
-        }
-        else
-            hi = mid - 1;
-    }
-
-    return res;
-}
-
-inline Integer root(Integer const& x, Integer const& n)
-{
-    assert(n > 0);
-
-    if (x < 0)
-        return Integer::nan();
-    else if (!x || x == 1 || x.isNan() || x.isInfinity())
-        return x;
-    else if (n == 1)
-        return x;
-    else if (n.isNan() || n.isInfinity())
-        return Integer::nan();
-
-    Integer lo(1), hi(x);
-    Integer res(1);
-
-    while (lo <= hi)
-    {
-        Integer mid(lo + hi);
-        mid >>= 1;
-
-        if (pow(mid, n) <= x)
-        {
-            res = mid;
-            lo = mid + 1;
-        }
-        else
-            hi = mid - 1;
-    }
-
-    return res;
-}
-
-template <typename S>
-CONSTEXPR inline Integer root(S const& x, Integer const& n)
-{
-    return root(Integer(x), n);
-}
-
-template <typename S>
-CONSTEXPR inline Integer root(Integer const& x, S const& n)
-{
-    return root(x, Integer(n));
-}
-
-inline Integer computeQuotientBinary(Integer dividend, Integer const& divisor)
-{
-    if (!divisor)
-        return Integer::nan();
-    else if (!dividend)
-        return Integer{0};
-    else if (dividend.isNan())
-        return dividend;
-    else if (divisor.isNan())
-        return divisor;
-    else if (dividend.isInfinity() || divisor.isInfinity())
-        return Integer::nan();
-    else if (divisor.abs() > dividend.abs())
-        return Integer{0};
-    else if (dividend < 0 && divisor > 0)
-        return -computeQuotientBinary(-dividend, divisor);
-    else if (dividend > 0 && divisor < 0)
-        return -computeQuotientBinary(dividend, -divisor);
-    else if (dividend < 0 && divisor < 0)
-        return computeQuotientBinary(-dividend, -divisor);
-
-    Integer quotient(0);
-    auto tempDivisor(divisor);
-    Integer bit(1);
-
-    while (dividend >= (tempDivisor << 1))
-    {
-        tempDivisor <<= 1;
-        bit <<= 1;
-    }
-
-    while (bit >= 1)
-    {
-        if (dividend >= tempDivisor)
-        {
-            dividend -= tempDivisor;
-            quotient += bit;
-        }
-
-        tempDivisor >>= 1;
-        bit >>= 1;
-    }
-
-    return quotient;
-}
-
-template <typename S>
-CONSTEXPR inline Integer computeQuotientBinary(Integer const& dividend, S const& divisor)
-{
-    return computeQuotientBinary(dividend, Integer(divisor));
-}
-
-template <typename S>
-CONSTEXPR inline Integer computeQuotientBinary(S const& dividend, Integer const& divisor)
-{
-    return computeQuotientBinary(Integer(dividend), divisor);
-}
-
-inline std::pair<Integer, Integer> computeQrBinary(Integer const& dividend, Integer const& divisor)
-{
-    std::pair<Integer, Integer> qr{computeQuotientBinary(dividend, divisor), Integer(0)};
-    qr.second = dividend.abs() - qr.first.abs() * divisor.abs();
-
-    if (dividend < 0 && divisor < 0)
-    {
-        if (qr.second)
-        {
-            ++qr.first;
-            qr.second += divisor;
-        }
-    }
-    else if (dividend > 0 && divisor < 0)
-    {
-        if (qr.second)
-        {
-            qr.first -= 1;
-            qr.second += divisor;
-        }
-    }
-    else if (dividend < 0 && divisor > 0)
-    {
-        if (qr.second)
-        {
-            qr.first -= 1;
-            qr.second = divisor - qr.second;
-        }
-    }
-
-    return qr;
-}
-
 inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& dividend, Integer const& divisor)
 {
     if (!divisor)
@@ -2549,8 +1724,8 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
                        Integer const&, Integer const&)> inner1;
 
     inner1 =
-        [&inner1] (std::vector<Integer>& a_digits, Integer const& x, Integer const& L,
-                  Integer const& R, Integer const& n) -> void
+    [&inner1] (std::vector<Integer>& a_digits, Integer const& x, Integer const& L,
+               Integer const& R, Integer const& n) -> void
     {
         if (L + 1 == R)
         {
@@ -2567,29 +1742,29 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
     };
 
     auto _int2digits
+    {
+        [&inner1] (Integer const& a, Integer const& n) -> std::vector<Integer>
         {
-            [&inner1] (Integer const& a, Integer const& n) -> std::vector<Integer>
-            {
-                assert(a >= 0);
+            assert(a >= 0);
 
-                if (!a)
-                    return std::vector<Integer>{Integer(0)};
+            if (!a)
+                return std::vector<Integer>{Integer(0)};
 
-                std::vector<Integer> a_digits(((a.number() + n - 1) / n), Integer(0));
+            std::vector<Integer> a_digits(((a.number() + n - 1) / n), Integer(0));
 
-                if (a)
-                    inner1(a_digits, a, Integer(0), Integer(a_digits.size()), n);
+            if (a)
+                inner1(a_digits, a, Integer(0), Integer(a_digits.size()), n);
 
-                return a_digits;
-            }
-        };
+            return a_digits;
+        }
+    };
 
     std::function<Integer(std::vector<Integer> const&, Integer const&,
                           Integer const&, Integer const&)> inner2;
 
     inner2 =
-        [&inner2] (std::vector<Integer> const& digits, Integer const& L,
-                  Integer const& R, Integer const& n) -> Integer
+    [&inner2] (std::vector<Integer> const& digits, Integer const& L,
+               Integer const& R, Integer const& n) -> Integer
     {
         if (L + 1 == R)
             return digits[L];
@@ -2601,15 +1776,15 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
     };
 
     auto _digits2int
+    {
+        [&inner2] (std::vector<Integer> const& digits, Integer const& n) -> Integer
         {
-            [&inner2] (std::vector<Integer> const& digits, Integer const& n) -> Integer
-            {
-                if (digits.empty())
-                    return Integer(0);
+            if (digits.empty())
+                return Integer(0);
 
-                return inner2(digits, Integer(0), Integer(digits.size()), n);
-            }
-        };
+            return inner2(digits, Integer(0), Integer(digits.size()), n);
+        }
+    };
 
     std::function<std::pair<Integer, Integer>(Integer, Integer, Integer)> _div2n1n;
     std::function<std::pair<Integer, Integer>(Integer const&, Integer const&,
@@ -2617,7 +1792,7 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
                                               Integer const&, Integer const&)> _div3n2n;
 
     _div2n1n =
-        [&_div3n2n] (Integer a, Integer b, Integer n) -> std::pair<Integer, Integer>
+    [&_div3n2n] (Integer a, Integer b, Integer n) -> std::pair<Integer, Integer>
     {
         if (a.fits<uintmax_t>() && b.fits<uintmax_t>())
             return {Integer(a.cast<uintmax_t>() / b.cast<uintmax_t>()),
@@ -2647,9 +1822,9 @@ inline std::pair<Integer, Integer> computeQrBurnikelZiegler(Integer const& divid
     };
 
     _div3n2n =
-        [&_div2n1n] (Integer const& a12, Integer const& a3,
-                    Integer const& b, Integer const& b1,
-                    Integer const& b2, Integer const& n) -> std::pair<Integer, Integer>
+    [&_div2n1n] (Integer const& a12, Integer const& a3,
+                 Integer const& b, Integer const& b1,
+                 Integer const& b2, Integer const& n) -> std::pair<Integer, Integer>
     {
         Integer q, r;
 
@@ -2743,11 +1918,6 @@ template <typename S>
 CONSTEXPR inline std::pair<Integer, Integer> computeQrBurnikelZiegler(S const& dividend, Integer const& divisor)
 {
     return computeQrBurnikelZiegler(Integer(dividend), divisor);
-}
-
-inline Integer operator""_z(char const* str)
-{
-    return Integer(str);
 }
 
 #endif // INTEGER_H

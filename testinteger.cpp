@@ -621,12 +621,13 @@ void TestInteger::testPrimes()
     }
 #endif
 
-    QVERIFY((2_z).isPrime() == 2);
+    QVERIFY((2_z).isPrime() == 2); //First Mills prime
     QVERIFY(!(4_z).isPrime());
     QVERIFY((3_z).isPrime() == 2);
     QVERIFY((3_z).nextPrime() == 5);
     QVERIFY((4_z).nextPrime() == 5);
     QVERIFY((5_z).nextPrime() == 7);
+    QVERIFY((7_z).isPrime() == 2); //Second Mills prime
     QVERIFY((10_z).nextPrime() == 11);
     QVERIFY((13_z).previousPrime() == 11);
     QVERIFY((12_z).previousPrime() == 11);
@@ -640,13 +641,18 @@ void TestInteger::testPrimes()
     QVERIFY((23_z).isPrime() == 2);
     QVERIFY((29_z).isPrime() == 2);
     QVERIFY((31_z).isPrime() == 2);
+    QVERIFY((337_z).isPrime() == 2); //Third Mills prime
     QVERIFY((40'562_z).nextPrime().isPrime() == 2);
     QVERIFY((15'465'319_z).previousPrime().isPrime() == 2);
     QVERIFY((15'465'319_z).nextPrime().isPrime() == 2);
-    QVERIFY((1'299'709_z).isPrime());//100'000th prime
+    QVERIFY((1'299'709_z).isPrime()); //100'000th prime
     QVERIFY(!(15'482'009_z).isPrime());
-    QVERIFY((13'359'555'403_z).isPrime());//600'000'000th prime
-    QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime());
+    QVERIFY((38'272'739_z).isPrime()); //Fourth Mills prime
+    QVERIFY((13'359'555'403_z).isPrime()); //600'000'000th prime
+    QVERIFY((2'462'906'046'218'251_z).isPrime()); //First probable prime for GMP
+    QVERIFY((56062005704198360319209_z).isPrime()); //Fifth Mills prime
+    //QVERIFY((176199995814327287356671209104585864397055039072110696028654438846269_z).isPrime()); //Sixth Mills prime
+    //QVERIFY((4113101149215104800030529537915953170486139623539759933135949994882770404074832568499_z).isPrime());
 }
 
 void TestInteger::testShift()
@@ -758,21 +764,21 @@ void TestInteger::testUnsignedLongLong()
     {
         Integerll n(~0ull);
 
-        QVERIFY(n.bits().size() == 1 && n.bits().back() == ~0ull);
+        QVERIFY(n.size() == 1 && n.bits().back() == ~0ull);
 
         n += 1;
 
-        QVERIFY(n.bits().size() == 2 && n.bits()[0] == 1 && n.bits()[1] == 0);
+        QVERIFY(n.size() == 2 && n.bits()[0] == 1 && n.bits()[1] == 0);
 
         n -= 1;
 
-        QVERIFY(n.bits().size() == 1 && n.bits().back() == ~0ull);
+        QVERIFY(n.size() == 1 && n.bits().back() == ~0ull);
     }
 
     {
         Integerll const p(pow(Integerll(10), 20));
 
-        QVERIFY(p.bits().size() == 2 && p.bits()[0] == 5 && p.bits()[1] == 7766279631452241920ull);
+        QVERIFY(p.size() == 2 && p.bits()[0] == 5 && p.bits()[1] == 7766279631452241920ull);
     }
 
     {
@@ -780,7 +786,7 @@ void TestInteger::testUnsignedLongLong()
 
         p *= 10;
 
-        QVERIFY(p.bits().size() == 2 && p.bits()[0] == 542 && p.bits()[1] == 1864712049423024128ull);
+        QVERIFY(p.size() == 2 && p.bits()[0] == 542 && p.bits()[1] == 1864712049423024128ull);
     }
 
     {

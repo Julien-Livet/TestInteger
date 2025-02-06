@@ -7,6 +7,7 @@ CONFIG(debug, debug|release) {
     DEFINES += NDEBUG
 }
 
+DEFINES += WITH_BOOST
 DEFINES += WITH_GMP
 
 INCLUDEPATH += D:/Programmes/gmp-6.3.0

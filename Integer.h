@@ -36,9 +36,13 @@
 #include <gmpxx.h>
 #endif
 
+#ifdef WITH_BOOST
+#include <boost/multiprecision/cpp_int.hpp>
+#endif
+
 using longest_type = uintmax_t;
 
-#include "primes_2_000_000.h"
+#include "primes_3_000_000.h"
 
 template <typename T, typename Enable = void>
 class Integer;
@@ -69,7 +73,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     n /= shift;
                 }
 
-                std::reverse(bits_.begin(), bits_.end());
+                std::reverse(std::begin(bits_), std::end(bits_));
             }
 
             adjust();
@@ -100,6 +104,28 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 #ifdef WITH_GMP
         CONSTEXPR Integer(mpz_class const& n) : Integer(n.get_str(2), 2)
         {
+        }
+        
+        CONSTEXPR Integer(mpz_t const n)
+        {
+            char* s{nullptr};
+            
+            gmp_asprintf(&s, "%Zd", n);
+            
+            *this = Integer(s, 10);
+            
+            free(s);
+        }
+#endif
+
+#ifdef WITH_BOOST
+        CONSTEXPR Integer(boost::multiprecision::cpp_int const& n)
+        {
+            std::ostringstream oss;
+            
+            oss << n;
+            
+            *this = Integer(oss.str(), 10);
         }
 #endif
 
@@ -580,7 +606,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     if (carry)
                         result.emplace_back(T{1});
 
-                    std::reverse(result.begin(), result.end());
+                    std::reverse(std::begin(result), std::end(result));
 
                     bits_ = result;
                 }
@@ -800,7 +826,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             std::vector<T> const v(n.template cast<longest_type>(), T{0});
 
-            bits_.insert(bits_.end(), v.begin(), v.end());
+            bits_.insert(std::end(bits_), std::begin(v), std::end(v));
 
             other -= n * s;
 
@@ -814,7 +840,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             if (shift)
             {
-                for (auto it{bits_.begin() + 1}; it != bits_.end(); ++it)
+                for (auto it{std::begin(bits_) + 1}; it != std::end(bits_); ++it)
                 {
                     longest_type const s{sizeof(T) * 8};
                     
@@ -1134,12 +1160,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         CONSTEXPR Integer& operator&=(Integer const& other)
         {
             std::vector<T> bits(std::max(bits_.size(), other.bits_.size())
-                                        - std::min(bits_.size(), other.bits_.size()), 0);
+                                  - std::min(bits_.size(), other.bits_.size()), 0);
 
             if (bits_.size() > other.bits_.size())
-                bits.insert(bits.end(), other.bits_.begin(), other.bits_.end());
+                bits.insert(std::end(bits), std::begin(other.bits_), std::end(other.bits_));
             else
-                bits.insert(bits.end(), bits_.begin(), bits_.end());
+                bits.insert(std::end(bits), std::begin(bits_), std::end(bits_));
 
             std::vector<T> const& otherBits(bits_.size() > other.bits_.size() ? bits_ : other.bits_);
 
@@ -1292,7 +1318,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             return *this = Integer(other);
         }
 
-        CONSTEXPR std::string toString(size_t base = 10) const
+        CONSTEXPR std::string toString(size_t base = 10, bool showBase = true) const
         {
             assert(2 <= base && base <= 62);
 
@@ -1362,7 +1388,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
 #endif
 
-                s = "0b" + s;
+                if (showBase)
+                    s = "0b" + s;
             }
             else if (base == 8)
             {
@@ -1386,6 +1413,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 }
 #endif
 
+                if (showBase)
                     s = "0o" + s;
             }
             else if (base == 10)
@@ -1483,15 +1511,17 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                     while (number)
                     {
-                        auto const tmp(number % 16);
-                        if (number < 10)
-                            s = std::to_string(tmp.template cast<short>()) + s;
+                        auto const tmp((number % 16).template cast<unsigned char>());
+                        if (tmp < 10)
+                            s = std::to_string(tmp) + s;
                         else
-                            s = (char)('a' + tmp.template cast<short>() - 10) + s;
+                            s = (char)('a' + tmp - 10) + s;
                         number /= 16;
                     }
                 }
 #endif
+
+                if (showBase)
                     s = "0x" + s;
             }
             else if (base <= 62)
@@ -1503,18 +1533,18 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
                 while (number)
                 {
-                    auto const tmp(number % base);
-                    if (number < 10)
-                        s = std::to_string(tmp.template cast<short>()) + s;
-                    else if (number - 10 < 26)
-                        s = (char)('a' + tmp.template cast<short>() - 10) + s;
+                    auto const tmp((number % base).template cast<unsigned char>());
+                    if (tmp < 10)
+                        s = std::to_string(tmp) + s;
+                    else if (tmp - 10 < 26)
+                        s = (char)('a' + tmp - 10) + s;
                     else
-                        s = (char)('A' + tmp.template cast<short>() - 36) + s;
+                        s = (char)('A' + tmp - 36) + s;
                     number /= base;
                 }
             }
 
-            if (bits_.empty() && (!s.empty() && s.back() != '0'))
+            if (!bits_.size() && (!s.empty() && s.back() != '0'))
                 s += '0';
 
             if (!isPositive_)
@@ -1604,7 +1634,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             isNan_ = true;
             isInfinity_ = false;
-            bits_.clear();
+            bits_.resize(0);
         }
 
         CONSTEXPR bool isInfinity() const noexcept
@@ -1616,7 +1646,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             isNan_ = false;
             isInfinity_ = true;
-            bits_.clear();
+            bits_.resize(0);
         }
 
         CONSTEXPR Integer abs() const
@@ -2091,12 +2121,12 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             if (isNan() || isInfinity())
                 return number;
 
-            auto it{bits_.begin()};
+            auto it{std::begin(bits_)};
 
-            while (!*it && it != bits_.end())
+            while (!*it && it != std::end(bits_))
                 ++it;
 
-            if (it != bits_.end())
+            if (it != std::end(bits_))
             {
                 auto b{*it};
 
@@ -2106,7 +2136,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     b >>= 1;
                 }
 
-                number += (std::distance(it, bits_.end()) - 1) * sizeof(T) * 8;
+                number += (std::distance(it, std::end(bits_)) - 1) * sizeof(T) * 8;
             }
 
             return number;
@@ -2116,7 +2146,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             if (isNan() || isInfinity())
                 return false;
-            else if (bits_.empty())
+            else if (!bits_.size())
                 return true;
 
             return !(bits_.back() & 1);
@@ -2124,7 +2154,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
         CONSTEXPR bool isOdd() const noexcept
         {
-            if (bits_.empty())
+            if (!bits_.size())
                 return false;
 
             return bits_.back() & 1;
@@ -2293,19 +2323,19 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
         CONSTEXPR void adjust()
         {
-            if (bits_.empty())
+            if (!bits_.size())
                 return;
 
-            auto it{bits_.begin()};
+            auto it{std::begin(bits_)};
 
-            while (!*it && it != bits_.end())
+            while (!*it && it != std::end(bits_))
                 ++it;
 
-            if (it == bits_.end())
-                it = bits_.end() - 1;
+            if (it == std::end(bits_))
+                it = std::end(bits_) - 1;
 
-            if (it != bits_.begin())
-                bits_ = std::vector<T>{it, bits_.end()};
+            if (it != std::begin(bits_))
+                bits_ = std::vector<T>{it, std::end(bits_)};
         }
 
         CONSTEXPR bool isCoprime(Integer const& other) const noexcept
@@ -2411,6 +2441,53 @@ inline mpz_class Integer<unsigned long long>::cast<mpz_class>() const
     s.replace(s.find("0b"), 2, "");
 
     return mpz_class{s, 2};
+}
+#endif
+
+#ifdef WITH_BOOST
+template <>
+template <>
+inline boost::multiprecision::cpp_int Integer<unsigned char>::cast<boost::multiprecision::cpp_int>() const
+{
+    auto s{toString(10)};
+
+    return boost::multiprecision::cpp_int(s);
+}
+
+template <>
+template <>
+inline boost::multiprecision::cpp_int Integer<unsigned short>::cast<boost::multiprecision::cpp_int>() const
+{
+    auto s{toString(10)};
+
+    return boost::multiprecision::cpp_int(s);
+}
+
+template <>
+template <>
+inline boost::multiprecision::cpp_int Integer<unsigned int>::cast<boost::multiprecision::cpp_int>() const
+{
+    auto s{toString(10)};
+
+    return boost::multiprecision::cpp_int(s);
+}
+
+template <>
+template <>
+inline boost::multiprecision::cpp_int Integer<unsigned long>::cast<boost::multiprecision::cpp_int>() const
+{
+    auto s{toString(10)};
+
+    return boost::multiprecision::cpp_int(s);
+}
+
+template <>
+template <>
+inline boost::multiprecision::cpp_int Integer<unsigned long long>::cast<boost::multiprecision::cpp_int>() const
+{
+    auto s{toString(10)};
+
+    return boost::multiprecision::cpp_int(s);
 }
 #endif
 
@@ -2692,7 +2769,14 @@ CONSTEXPR inline Integer<T> operator^(S const& lhs, Integer<T> const& rhs)
 template <typename T>
 CONSTEXPR inline std::ostream& operator<<(std::ostream& os, Integer<T> const& n)
 {
-    return os << n.toString();
+    bool const showBase(os.flags() & std::ios_base::showbase);
+    
+    if (os.flags() & std::ios_base::oct)
+        return os << n.toString(8, showBase);
+    else if (os.flags() & std::ios_base::hex)
+        return os << n.toString(16, showBase);
+    else
+        return os << n.toString(10, showBase);
 }
 
 template <typename T>
@@ -3608,7 +3692,7 @@ CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Int
     {
         [&inner2] (std::vector<Integer<T> > const& digits, Integer<T> const& n) -> Integer<T>
         {
-            if (digits.empty())
+            if (!digits.size())
                 return Integer<T>(0);
 
             return inner2(digits, Integer<T>(0), Integer<T>(digits.size()), n);
@@ -3715,7 +3799,7 @@ CONSTEXPR inline std::pair<Integer<T>, Integer<T> > computeQrBurnikelZiegler(Int
         q_digits.emplace_back(q_digit);
     }
 
-    std::reverse(q_digits.begin(), q_digits.end());
+    std::reverse(std::begin(q_digits), std::end(q_digits));
 
     q = _digits2int(q_digits, n);
 

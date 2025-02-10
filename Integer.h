@@ -1760,8 +1760,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             //Trial divisions
 
+            auto const sqrtLimit(sqrt(*this));
+
+            if (sqrtLimit < primes.back())
             {
-                auto const sqrtLimit(sqrt(*this));
                 std::atomic<bool> divisible(false);
         
                 auto threadFunc
@@ -2784,23 +2786,17 @@ CONSTEXPR inline Integer<T> gcd(Integer<T> const& a, Integer<T> const& b)
 {
     if (a.isNan() || b.isNan() || a.isInfinity() || b.isInfinity())
         return Integer<T>::nan();
-
-    if (a < 0)
+    else if (a < 0)
         return gcd(a.abs(), b);
-
-    if (b < 0)
+    else if (b < 0)
         return gcd(a, b.abs());
-
-    if (a < b)
+    else if (a < b)
         return gcd(b, a);
-
-    if (!a)
+    else if (!a)
         return b;
-
-    if (!b)
+    else if (!b)
         return a;
-
-    if (a.isEven() && b.isEven())
+    else if (a.isEven() && b.isEven())
         return 2 * gcd(a >> 1, b >> 1);
     else if (a.isOdd() && b.isEven())
         return gcd(a, b >> 1);

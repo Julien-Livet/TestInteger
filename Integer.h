@@ -66,7 +66,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     n = -n;
             }
 
-            if (sizeof(T) == sizeof(S))
+            if constexpr (sizeof(T) == sizeof(S))
                 bits_.emplace_back(n);
             else
             {

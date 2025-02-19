@@ -54,12 +54,17 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         CONSTEXPR Integer() = default;
 
         template <typename S, std::enable_if_t<std::is_standard_layout_v<S> && std::is_trivial_v<S> >* = nullptr>
-        CONSTEXPR Integer(S n) : isPositive_{n >= 0}
+        CONSTEXPR Integer(S n)
         {
             bits_.reserve(std::max(longest_type{1}, longest_type{sizeof(S) / sizeof(T)}));
 
-            if (n < 0)
-                n = -n;
+            if constexpr (std::is_signed<S>::value)
+            {
+                isPositive_ = (n >= 0);
+
+                if (n < 0)
+                    n = -n;
+            }
 
             if (sizeof(T) == sizeof(S))
                 bits_.emplace_back(n);

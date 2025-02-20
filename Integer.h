@@ -1738,7 +1738,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             assert(reps);
             
-            if (bits_.empty())
+            if (bits_.empty() || isNan()  || isInfinity())
                 return 0;
             else if (*this < 2)
                 return 0;

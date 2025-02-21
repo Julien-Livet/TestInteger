@@ -495,9 +495,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                                   bits.rbegin());
                         Integer const x0(bits);
                         bits = std::vector<T>(m, T{0});
-                        std::copy(bits_.rbegin() + m,
-                                  bits_.rbegin() + std::min(bits_.size(), 2 * m),
-                                  bits.rbegin());
+                        if (cu::min(bits_.size(), 2 * m) >= m)
+                            std::copy(bits_.rbegin() + m,
+                                      bits_.rbegin() + std::min(bits_.size(), 2 * m),
+                                      bits.rbegin());
                         Integer const x1(bits);
                         bits = std::vector<T>(m, T{0});
                         std::copy(other.bits_.rbegin(),
@@ -505,9 +506,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                                   bits.rbegin());
                         Integer const y0(bits);
                         bits = std::vector<T>(m, T{0});
-                        std::copy(other.bits_.rbegin() + m,
-                                  other.bits_.rbegin() + std::min(other.bits_.size(), 2 * m),
-                                  bits.rbegin());
+                        if (cu::min(other.bits_.size(), 2 * m) >= m)
+                            std::copy(other.bits_.rbegin() + m,
+                                      other.bits_.rbegin() + std::min(other.bits_.size(), 2 * m),
+                                      bits.rbegin());
                         Integer const y1(bits);
 
                         assert(*this == ((x1 << (m * sizeof(T) * 8)) | x0));

@@ -495,7 +495,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                                   bits.rbegin());
                         Integer const x0(bits);
                         bits = std::vector<T>(m, T{0});
-                        if (cu::min(bits_.size(), 2 * m) >= m)
+                        if (std::min(bits_.size(), 2 * m) >= m)
                             std::copy(bits_.rbegin() + m,
                                       bits_.rbegin() + std::min(bits_.size(), 2 * m),
                                       bits.rbegin());
@@ -506,7 +506,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                                   bits.rbegin());
                         Integer const y0(bits);
                         bits = std::vector<T>(m, T{0});
-                        if (cu::min(other.bits_.size(), 2 * m) >= m)
+                        if (std::min(other.bits_.size(), 2 * m) >= m)
                             std::copy(other.bits_.rbegin() + m,
                                       other.bits_.rbegin() + std::min(other.bits_.size(), 2 * m),
                                       bits.rbegin());
@@ -1740,7 +1740,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
         {
             assert(reps);
             
-            if (bits_.empty() || isNan()  || isInfinity())
+            if (bits_.empty() || isNan() || isInfinity())
                 return 0;
             else if (*this < 2)
                 return 0;

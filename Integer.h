@@ -42,7 +42,8 @@
 
 using longest_type = uintmax_t;
 
-#include "primes_3_000_000.h"
+//#include "primes_3_000_000.h"
+#include "primes_100.h"
 
 template <typename T, typename Enable = void>
 class Integer;
@@ -1769,10 +1770,9 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             //Trial divisions
 
-            auto const sqrtLimit(sqrt(*this));
-
-            if (sqrtLimit < primes.back())
             {
+                auto const sqrtLimit(sqrt(*this));
+
                 std::atomic<bool> divisible(false);
         
                 auto threadFunc
@@ -2339,7 +2339,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
 
             auto it{std::begin(bits_)};
 
-            while (!*it && it != std::end(bits_))
+            while (it != std::end(bits_) && !*it)
                 ++it;
 
             if (it == std::end(bits_))

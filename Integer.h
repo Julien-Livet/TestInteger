@@ -405,7 +405,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                         auto const ab(a * b);
 
                         if (ab / b == a)
-                            *this = ab;
+                        {
+                            bits_.resize(1);
+                            bits_.back() = ab;
+                        }
                         else
                         {
                             auto number{[] (longest_type n) -> size_t
@@ -729,7 +732,10 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                 else if (isPositive_ && other.isPositive_)
                 {
                     if (this->template fits<longest_type>() && other.template fits<longest_type>())
-                        *this = this->template cast<longest_type>() / other.template cast<longest_type>();
+                    {
+                        bits_.resize(1);
+                        bits_.back() = this->template cast<longest_type>() / other.template cast<longest_type>();
+                    }
                     else if (!(rhs & char(1)))
                     {
                         auto r(rhs);
@@ -783,7 +789,8 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     {
                         auto const isPositive{isPositive_};
 
-                        *this = abs().template cast<longest_type>() % other.abs().template cast<longest_type>();
+                        bits_.resize(1);
+                        bits_.back() = abs().template cast<longest_type>() % other.abs().template cast<longest_type>();
 
                         isPositive_ = isPositive;
                     }

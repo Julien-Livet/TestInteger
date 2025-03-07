@@ -791,20 +791,20 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
                     }
                     else
                     {
-                        auto const qr{computeQrBurnikelZiegler(*this, other)};
+                        auto qr(computeQrBurnikelZiegler(*this, other));
 
                         assert(*this == qr.first * rhs + qr.second);
 
-                        *this = qr.second;
+                        *this = std::move(qr.second);
                     }
                 }
                 else
                 {
-                    auto const qr{computeQrBurnikelZiegler(*this, other)};
+                    auto qr(computeQrBurnikelZiegler(*this, other));
 
                     assert(*this == qr.first * rhs + qr.second);
 
-                    *this = qr.second;
+                    *this = std::move(qr.second);
                 }
             }
 
@@ -1055,7 +1055,7 @@ class Integer<T, typename std::enable_if<std::is_unsigned<T>::value>::type>
             if constexpr (sizeof(S) <= sizeof(T))
             {
                 if (bits_.size() == 1)
-                    return bits_.back() == other;
+                    return bits_.back() == static_cast<T>(other);
             }
                             
             return *this == Integer(other);
